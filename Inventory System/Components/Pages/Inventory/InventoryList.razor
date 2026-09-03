@@ -1,0 +1,387 @@
+@page "/inventory"
+@inject AuthService AuthService
+@inject NavigationManager Navigation
+@inject InventoryService InventoryService
+@inject CategoryService CategoryService
+@inject ToastService ToastService
+
+<PageTitle>Inventory - Inventory System</PageTitle>
+
+<div class="page-header">
+    <div>
+        <h1>Inventory</h1>
+        <p>Manage your products and stock levels</p>
+    </div>
+    <div class="page-header-actions">
+        <button class="btn btn-primary" @onclick='() => Navigation.NavigateTo("/inventory/add")'><i class="bi bi-plus-lg"></i> Add Product</button>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body" style="padding-bottom: 0;">
+        <div class="toolbar">
+            <div class="search-box">
+                <span class="search-icon"><i class="bi bi-search"></i></span>
+                <input type="text" placeholder="Search by ID, name, or category..." @bind="searchQuery" @bind:event="oninput" @onkeyup="ApplyFilters" />
+            </div>
+            <select @bind="filterCategory" @bind:after="ApplyFilters">
+                <option value="">All Categories</option>
+                @foreach (var cat in categories)
+                {
+                    <option value="@cat">@cat</option>
+                }
+            </select>
+            <select @bind="filterStatus" @bind:after="ApplyFilters">
+                <option value="">All Status</option>
+                <option value="In Stock">In Stock</option>
+                <option value="Low Stock">Low Stock</option>
+                <option value="Out of Stock">Out of Stock</option>
+            </select>
+            <select @bind="sortBy" @bind:after="ApplyFilters">
+                <option value="productid">Sort by ID</option>
+                <option value="name">Sort by Name</option>
+                <option value="price">Sort by Price</option>
+                <option value="quantity">Sort by Quantity</option>
+                <option value="date">Sort by Date Added</option>
+            </select>
+            <button class="btn btn-secondary btn-sm" @onclick="ToggleSortDirection" title="Toggle sort direction">
+                <i class="bi @(sortDescending ? "bi-arrow-down" : "bi-arrow-up")"></i> @(sortDescending ? "Desc" : "Asc")
+            </button>
+        </div>
+    </div>
+
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Product ID</th>
+                    <th>Product Name</th>
+                    <th>Category</th>
+                    <th>Price</th>
+                    <th>Quantity</th>
+                    <th>Min Stock</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (filteredProducts.Any())
+                {
+                    @foreach (var product in paginatedProducts)
+                    {
+                        <tr>
+                            <td class="mono">@product.ProductId</td>
+                            <td>
+                                <div>
+                                    <div style="font-weight:500;">@product.ProductName</div>
+                                    @if (!string.IsNullOrEmpty(product.Unit))
+                                    {
+                                        <div class="text-muted" style="font-size:12px;">per @product.Unit</div>
+                                    }
+                                </div>
+                            </td>
+                            <td><span class="badge badge-info">@product.Category</span></td>
+                            <td style="font-weight:500;">₱@product.Price.ToString("N2")</td>
+                            <td style="font-weight:600;">@product.Quantity</td>
+                            <td style="color:var(--text-secondary);">@product.MinimumStockLevel</td>
+                            <td>
+                                @if (product.Status == "In Stock")
+                                {
+                                    <span class="badge badge-success">In Stock</span>
+                                }
+                                else if (product.Status == "Low Stock")
+                                {
+                                    <span class="badge badge-warning">Low Stock</span>
+                                }
+                                else
+                                {
+                                    <span class="badge badge-danger">Out of Stock</span>
+                                }
+                            </td>
+                            <td>
+                                <div class="action-btns">
+                                    <button class="action-btn edit" title="Edit" @onclick="() => EditProduct(product.Id)"><i class="bi bi-pencil"></i></button>
+                                    <button class="action-btn add" title="Add Stock" @onclick="() => ShowStockModal(product, true)"><i class="bi bi-plus-lg"></i></button>
+                                    <button class="action-btn remove" title="Remove Stock" @onclick="() => ShowStockModal(product, false)"><i class="bi bi-dash-lg"></i></button>
+                                    <button class="action-btn delete" title="Delete" @onclick="() => ConfirmDelete(product)"><i class="bi bi-trash"></i></button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                }
+                else
+                {
+                    <tr>
+                        <td colspan="8">
+                            <div class="empty-state">
+                                <div class="empty-icon"><i class="bi bi-search"></i></div>
+                                <h3>No products found.</h3>
+                                <p>Try adjusting your search or filter criteria.</p>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    @if (filteredProducts.Any())
+    {
+        <div class="pagination">
+            <span class="page-info">
+                Showing @(currentPage * pageSize + 1)-@Math.Min((currentPage + 1) * pageSize, filteredProducts.Count) of @filteredProducts.Count products
+            </span>
+            <div class="page-btns">
+                <button class="page-btn" @onclick="PrevPage" disabled="@(currentPage == 0)"><i class="bi bi-chevron-left"></i></button>
+                @for (int i = 0; i < totalPages; i++)
+                {
+                    var pageNum = i;
+                    <button class="page-btn @(currentPage == pageNum ? "active" : "")" @onclick="() => GoToPage(pageNum)">@(pageNum + 1)</button>
+                }
+                <button class="page-btn" @onclick="NextPage" disabled="@(currentPage >= totalPages - 1)"><i class="bi bi-chevron-right"></i></button>
+            </div>
+        </div>
+    }
+</div>
+
+@if (showStockModal)
+{
+    <div class="modal-overlay" @onclick="CloseStockModal">
+        <div class="modal" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>@(isAddingStock ? "Add Stock" : "Remove Stock")</h3>
+                <button class="btn-icon btn-secondary" @onclick="CloseStockModal" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="modal-body">
+                <p style="color:var(--text-secondary);font-size:14px;margin-bottom:16px;">
+                    <strong style="color:var(--text-primary);">@stockModalProduct?.ProductName</strong>
+                    <span> (@stockModalProduct?.ProductId)</span>
+                </p>
+                <p style="color:var(--text-secondary);font-size:13px;margin-bottom:16px;">
+                    Current stock: <strong style="color:var(--text-primary);">@stockModalProduct?.Quantity @stockModalProduct?.Unit</strong>
+                </p>
+                <div class="form-group">
+                    <label>@(isAddingStock ? "Quantity to Add" : "Quantity to Remove") *</label>
+                    <input type="number" class="form-control" placeholder="0" @bind="stockAmount" min="1" />
+                </div>
+                @if (!string.IsNullOrEmpty(stockError))
+                {
+                    <div class="form-error">@stockError</div>
+                }
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary btn-sm" @onclick="CloseStockModal">Cancel</button>
+                <button class="btn @(isAddingStock ? "btn-success" : "btn-primary") btn-sm" @onclick="HandleStockAction">
+                    @(isAddingStock ? "Add Stock" : "Remove Stock")
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<ConfirmModal Show="@showDeleteModal"
+              Title="Delete Product"
+              ShowChanged="EventCallback.Factory.Create<bool>(this, val => showDeleteModal = val)"
+              OnConfirmAction="EventCallback.Factory.Create(this, DeleteProduct)">
+    <p style="color:var(--text-secondary);font-size:14px;">
+        Are you sure you want to delete <strong style="color:var(--text-primary);">@(productToDelete?.ProductName)</strong> (@productToDelete?.ProductId)? This action cannot be undone.
+    </p>
+</ConfirmModal>
+
+@code {
+    private List<Product> allProducts = new();
+    private List<Product> filteredProducts = new();
+    private List<Product> paginatedProducts = new();
+    private List<string> categories = new();
+
+    private string searchQuery = string.Empty;
+    private string filterCategory = string.Empty;
+    private string filterStatus = string.Empty;
+    private string sortBy = "productid";
+    private bool sortDescending = false;
+
+    private int currentPage;
+    private int pageSize = 10;
+    private int totalPages => (int)Math.Ceiling(filteredProducts.Count / (double)pageSize);
+
+    private bool showDeleteModal;
+    private Product? productToDelete;
+
+    private bool showStockModal;
+    private bool isAddingStock;
+    private Product? stockModalProduct;
+    private int stockAmount;
+    private string stockError = string.Empty;
+
+    [SupplyParameterFromQuery]
+    public string? Search { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!AuthService.IsLoggedIn)
+        {
+            await RedirectToLogin();
+            return;
+        }
+
+        InventoryService.OnInventoryChanged += LoadProducts;
+        categories = CategoryService.GetAll();
+
+        if (!string.IsNullOrEmpty(Search))
+        {
+            searchQuery = Search;
+        }
+
+        LoadProducts();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        if (redirectRequested)
+        {
+            redirectRequested = false;
+            var nav = Navigation;
+            if (nav != null)
+            {
+                nav.NavigateTo("/login", forceLoad: false);
+            }
+        }
+    }
+
+    private bool redirectRequested;
+
+    private Task RedirectToLogin()
+    {
+        redirectRequested = true;
+        return Task.CompletedTask;
+    }
+
+    private void LoadProducts()
+    {
+        allProducts = InventoryService.GetAll();
+        ApplyFilters();
+    }
+
+    private void ApplyFilters()
+    {
+        filteredProducts = InventoryService.Search(searchQuery, filterCategory, filterStatus, sortBy, sortDescending);
+        currentPage = 0;
+        UpdatePagination();
+    }
+
+    private void UpdatePagination()
+    {
+        paginatedProducts = filteredProducts.Skip(currentPage * pageSize).Take(pageSize).ToList();
+    }
+
+    private void ToggleSortDirection()
+    {
+        sortDescending = !sortDescending;
+        ApplyFilters();
+    }
+
+    private void PrevPage()
+    {
+        if (currentPage > 0)
+        {
+            currentPage--;
+            UpdatePagination();
+        }
+    }
+
+    private void NextPage()
+    {
+        if (currentPage < totalPages - 1)
+        {
+            currentPage++;
+            UpdatePagination();
+        }
+    }
+
+    private void GoToPage(int page)
+    {
+        currentPage = page;
+        UpdatePagination();
+    }
+
+    private void EditProduct(int id)
+    {
+        Navigation.NavigateTo($"/inventory/edit/{id}");
+    }
+
+    private void ConfirmDelete(Product product)
+    {
+        productToDelete = product;
+        showDeleteModal = true;
+    }
+
+    private void DeleteProduct()
+    {
+        if (productToDelete != null)
+        {
+            InventoryService.Delete(productToDelete.Id);
+            ToastService.ShowSuccess($"'{productToDelete.ProductName}' has been deleted.");
+            productToDelete = null;
+            showDeleteModal = false;
+            LoadProducts();
+        }
+    }
+
+    private void ShowStockModal(Product product, bool adding)
+    {
+        stockModalProduct = product;
+        isAddingStock = adding;
+        stockAmount = 0;
+        stockError = string.Empty;
+        showStockModal = true;
+    }
+
+    private void CloseStockModal()
+    {
+        showStockModal = false;
+        stockModalProduct = null;
+    }
+
+    private void HandleStockAction()
+    {
+        if (stockModalProduct == null) return;
+        stockError = string.Empty;
+
+        if (stockAmount <= 0)
+        {
+            stockError = "Please enter a valid quantity.";
+            return;
+        }
+
+        bool success;
+        if (isAddingStock)
+        {
+            success = InventoryService.AddStock(stockModalProduct.Id, stockAmount);
+            if (success)
+            {
+                ToastService.ShowSuccess($"Added {stockAmount} {stockModalProduct.Unit}(s) to '{stockModalProduct.ProductName}'.");
+            }
+        }
+        else
+        {
+            if (stockAmount > stockModalProduct.Quantity)
+            {
+                stockError = $"Cannot remove more than available stock ({stockModalProduct.Quantity}).";
+                return;
+            }
+            success = InventoryService.RemoveStock(stockModalProduct.Id, stockAmount);
+            if (success)
+            {
+                ToastService.ShowSuccess($"Removed {stockAmount} {stockModalProduct.Unit}(s) from '{stockModalProduct.ProductName}'.");
+            }
+        }
+
+        if (success)
+        {
+            showStockModal = false;
+            stockModalProduct = null;
+            LoadProducts();
+        }
+    }
+}

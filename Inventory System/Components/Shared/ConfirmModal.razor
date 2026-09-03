@@ -1,0 +1,49 @@
+@if (Show)
+{
+    <div class="modal-overlay" @onclick="HandleOverlayClick">
+        <div class="modal" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>@Title</h3>
+                <button class="btn-icon btn-secondary" @onclick="OnCancel" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="modal-body">
+                @ChildContent
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary btn-sm" @onclick="OnCancel">Cancel</button>
+                <button class="btn btn-danger btn-sm" @onclick="OnConfirm">Confirm</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool Show { get; set; }
+    [Parameter] public string Title { get; set; } = "Confirm Action";
+    [Parameter] public string Message { get; set; } = "Are you sure you want to proceed?";
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public EventCallback<bool> ShowChanged { get; set; }
+    [Parameter] public EventCallback OnConfirmAction { get; set; }
+
+    private async Task OnConfirm()
+    {
+        await OnConfirmAction.InvokeAsync();
+        await Close();
+    }
+
+    private async Task OnCancel()
+    {
+        await Close();
+    }
+
+    private async Task HandleOverlayClick()
+    {
+        await Close();
+    }
+
+    private async Task Close()
+    {
+        Show = false;
+        await ShowChanged.InvokeAsync(Show);
+    }
+}

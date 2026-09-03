@@ -1,0 +1,203 @@
+@page "/inventory/add"
+@inject AuthService AuthService
+@inject NavigationManager Navigation
+@inject InventoryService InventoryService
+@inject CategoryService CategoryService
+@inject ToastService ToastService
+
+<PageTitle>Add Product - Inventory System</PageTitle>
+
+<div class="page-header">
+    <div>
+        <h1>Add New Product</h1>
+        <p>Fill in the details to add a new product to inventory</p>
+    </div>
+    <div class="page-header-actions">
+        <button class="btn btn-secondary" @onclick='() => Navigation.NavigateTo("/inventory")'>Cancel</button>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <EditForm Model="product" OnValidSubmit="HandleSubmit">
+            <DataAnnotationsValidator />
+
+            <div class="grid-2" style="margin-bottom: 0;">
+                <div class="form-group">
+                    <label>Product ID *</label>
+                    <input type="text" class="form-control @(productIdClass)" placeholder="e.g. P005" @bind="product.ProductId" @bind:event="oninput" />
+                    <ValidationMessage For="() => product.ProductId" />
+                    @if (!string.IsNullOrEmpty(productIdError))
+                    {
+                        <div class="form-error">@productIdError</div>
+                    }
+                </div>
+
+                <div class="form-group">
+                    <label>Product Name *</label>
+                    <input type="text" class="form-control" placeholder="Enter product name" @bind="product.ProductName" @bind:event="oninput" />
+                    <ValidationMessage For="() => product.ProductName" />
+                </div>
+
+                <div class="form-group">
+                    <label>Category *</label>
+                    <select class="form-control @(categoryClass)" @bind="product.Category" @bind:event="oninput">
+                        <option value="">Select a category</option>
+                        @foreach (var cat in categories)
+                        {
+                            <option value="@cat">@cat</option>
+                        }
+                    </select>
+                    <ValidationMessage For="() => product.Category" />
+                </div>
+
+                <div class="form-group">
+                    <label>Price (₱) *</label>
+                    <input type="number" class="form-control" placeholder="0.00" @bind="product.Price" step="0.01" min="0" />
+                    <ValidationMessage For="() => product.Price" />
+                </div>
+
+                <div class="form-group">
+                    <label>Quantity *</label>
+                    <input type="number" class="form-control" placeholder="0" @bind="product.Quantity" min="0" />
+                    <ValidationMessage For="() => product.Quantity" />
+                </div>
+
+                <div class="form-group">
+                    <label>Minimum Stock Level *</label>
+                    <input type="number" class="form-control" placeholder="0" @bind="product.MinimumStockLevel" min="0" />
+                    <ValidationMessage For="() => product.MinimumStockLevel" />
+                </div>
+
+                <div class="form-group">
+                    <label>Unit *</label>
+                    <input type="text" class="form-control" placeholder="e.g. Piece, Bottle, Pack" @bind="product.Unit" @bind:event="oninput" />
+                    <ValidationMessage For="() => product.Unit" />
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Description</label>
+                <textarea class="form-control" rows="3" placeholder="Product description..." @bind="product.Description" style="resize:vertical;"></textarea>
+            </div>
+
+            <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px;" class="form-actions">
+                <button type="button" class="btn btn-secondary" @onclick='() => Navigation.NavigateTo("/inventory")'>Cancel</button>
+                <button type="submit" class="btn btn-primary">Add Product</button>
+            </div>
+        </EditForm>
+    </div>
+</div>
+
+@if (showSuccessModal)
+{
+    <div class="modal-overlay">
+        <div class="modal" style="max-width:400px;text-align:center;">
+            <div class="modal-body" style="padding:32px 24px;">
+                <div class="success-check" aria-hidden="true"><i class="bi bi-check-lg"></i></div>
+                <h3 style="font-size:18px;font-weight:600;margin-bottom:8px;">Product Added Successfully!</h3>
+                <p style="color:var(--text-secondary);font-size:14px;margin-bottom:24px;">The product has been added to the inventory.</p>
+                <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+                    <button class="btn btn-secondary btn-sm" @onclick="AddAnotherProduct">Add Another Product</button>
+                    <button class="btn btn-primary btn-sm" @onclick="GoToInventory">View Inventory</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private Product product = new();
+    private List<string> categories = new();
+    private bool submitted;
+    private bool showSuccessModal;
+    private string productIdError = string.Empty;
+    private string formProductIdError = string.Empty;
+
+    private string productIdClass => !string.IsNullOrEmpty(productIdError) || !string.IsNullOrEmpty(formProductIdError) ? "is-invalid" : "";
+    private string categoryClass => !string.IsNullOrEmpty(formProductIdError) || submitted && string.IsNullOrEmpty(product.Category) ? "is-invalid" : "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!AuthService.IsLoggedIn)
+        {
+            await RedirectToLogin();
+            return;
+        }
+
+        categories = CategoryService.GetAll();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        if (redirectRequested)
+        {
+            redirectRequested = false;
+            var nav = Navigation;
+            if (nav != null)
+            {
+                nav.NavigateTo("/login", forceLoad: false);
+            }
+        }
+    }
+
+    private bool redirectRequested;
+
+    private Task RedirectToLogin()
+    {
+        redirectRequested = true;
+        return Task.CompletedTask;
+    }
+
+    private void HandleSubmit()
+    {
+        submitted = true;
+        productIdError = string.Empty;
+        formProductIdError = string.Empty;
+
+        if (!string.IsNullOrWhiteSpace(product.ProductId))
+        {
+            product.ProductId = product.ProductId.Trim();
+            if (InventoryService.IsProductIdExists(product.ProductId))
+            {
+                formProductIdError = "Product ID already exists.";
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(product.ProductName))
+        {
+            product.ProductName = product.ProductName.Trim();
+        }
+
+        if (!string.IsNullOrWhiteSpace(product.Unit))
+        {
+            product.Unit = product.Unit.Trim();
+        }
+
+        if (!string.IsNullOrEmpty(formProductIdError) || string.IsNullOrEmpty(product.ProductId) ||
+            string.IsNullOrEmpty(product.ProductName) || string.IsNullOrEmpty(product.Category) ||
+            product.Price <= 0 || product.Quantity < 0 || product.MinimumStockLevel < 0)
+        {
+            return;
+        }
+
+        InventoryService.Add(product);
+        ToastService.ShowSuccess($"'{product.ProductName}' has been added to inventory.");
+        showSuccessModal = true;
+    }
+
+    private void AddAnotherProduct()
+    {
+        product = new Product();
+        showSuccessModal = false;
+        submitted = false;
+        productIdError = string.Empty;
+        formProductIdError = string.Empty;
+    }
+
+    private void GoToInventory()
+    {
+        Navigation.NavigateTo("/inventory");
+    }
+}

@@ -1,0 +1,199 @@
+@page "/reports"
+@inject AuthService AuthService
+@inject NavigationManager Navigation
+@inject InventoryService InventoryService
+@inject CategoryService CategoryService
+@inject IJSRuntime JS
+
+<PageTitle>Reports - Inventory System</PageTitle>
+
+<div class="page-header">
+    <div>
+        <h1>Reports</h1>
+        <p>Inventory analytics and insights</p>
+    </div>
+    <div class="page-header-actions">
+        <button class="btn btn-secondary" @onclick="PrintReport"><i class="bi bi-printer"></i> Print Report</button>
+    </div>
+</div>
+
+<div class="report-summary">
+    <div class="report-card">
+        <div class="report-value" style="color:var(--bright-blue);">@totalProducts</div>
+        <div class="report-label">Total Products</div>
+    </div>
+    <div class="report-card">
+        <div class="report-value" style="color:var(--success);">@totalQuantity</div>
+        <div class="report-label">Total Quantity</div>
+    </div>
+    <div class="report-card">
+        <div class="report-value" style="color:var(--warning);">₱@totalValue.ToString("N2")</div>
+        <div class="report-label">Total Inventory Value</div>
+    </div>
+    <div class="report-card">
+        <div class="report-value" style="color:var(--error);">@lowStockCount</div>
+        <div class="report-label">Low Stock Count</div>
+    </div>
+    <div class="report-card">
+        <div class="report-value" style="color:var(--error);">@outOfStockCount</div>
+        <div class="report-label">Out of Stock Count</div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body" style="padding-bottom:0;">
+        <div class="toolbar">
+            <select @bind="filterStatus" @bind:after="ApplyFilter">
+                <option value="">All</option>
+                <option value="Low Stock">Low Stock</option>
+                <option value="Out of Stock">Out of Stock</option>
+            </select>
+            <select @bind="filterCategory" @bind:after="ApplyFilter">
+                <option value="">All Categories</option>
+                @foreach (var cat in categories)
+                {
+                    <option value="@cat">@cat</option>
+                }
+            </select>
+        </div>
+    </div>
+
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Product ID</th>
+                    <th>Product Name</th>
+                    <th>Category</th>
+                    <th>Price</th>
+                    <th>Quantity</th>
+                    <th>Total Value</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var product in filteredProducts)
+                {
+                    <tr>
+                        <td class="mono">@product.ProductId</td>
+                        <td style="font-weight:500;">@product.ProductName</td>
+                        <td><span class="badge badge-info">@product.Category</span></td>
+                        <td>₱@product.Price.ToString("N2")</td>
+                        <td style="font-weight:600;">@product.Quantity @product.Unit</td>
+                        <td style="font-weight:600;">₱@((product.Price * product.Quantity).ToString("N2"))</td>
+                        <td>
+                            @if (product.Status == "In Stock")
+                            {
+                                <span class="badge badge-success">In Stock</span>
+                            }
+                            else if (product.Status == "Low Stock")
+                            {
+                                <span class="badge badge-warning">Low Stock</span>
+                            }
+                            else
+                            {
+                                <span class="badge badge-danger">Out of Stock</span>
+                            }
+                        </td>
+                    </tr>
+                }
+                @if (!filteredProducts.Any())
+                {
+                    <tr>
+                        <td colspan="7">
+                            <div class="empty-state">
+                                <div class="empty-icon"><i class="bi bi-file-earmark-bar-graph"></i></div>
+                                <h3>No products found</h3>
+                                <p>No products match the selected filter.</p>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    @if (filteredProducts.Any())
+    {
+        <div class="pagination">
+            <span class="page-info">
+                Showing @filteredProducts.Count of @allProducts.Count products
+            </span>
+            <span class="page-info">
+                Total: ₱@filteredProducts.Sum(p => p.Price * p.Quantity).ToString("N2")
+            </span>
+        </div>
+    }
+</div>
+
+@code {
+    private List<Product> allProducts = new();
+    private List<Product> filteredProducts = new();
+    private List<string> categories = new();
+    private string filterStatus = string.Empty;
+    private string filterCategory = string.Empty;
+
+    private int totalProducts;
+    private int totalQuantity;
+    private decimal totalValue;
+    private int lowStockCount;
+    private int outOfStockCount;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!AuthService.IsLoggedIn)
+        {
+            await RedirectToLogin();
+            return;
+        }
+
+        InventoryService.OnInventoryChanged += LoadData;
+        LoadData();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        if (redirectRequested)
+        {
+            redirectRequested = false;
+            var nav = Navigation;
+            if (nav != null)
+            {
+                nav.NavigateTo("/login", forceLoad: false);
+            }
+        }
+    }
+
+    private bool redirectRequested;
+
+    private Task RedirectToLogin()
+    {
+        redirectRequested = true;
+        return Task.CompletedTask;
+    }
+
+    private void LoadData()
+    {
+        allProducts = InventoryService.GetAll();
+        categories = CategoryService.GetAll();
+
+        totalProducts = InventoryService.GetProductCount();
+        totalQuantity = InventoryService.GetTotalQuantity();
+        totalValue = InventoryService.GetTotalInventoryValue();
+        lowStockCount = allProducts.Count(p => p.Status == "Low Stock");
+        outOfStockCount = allProducts.Count(p => p.Status == "Out of Stock");
+
+        ApplyFilter();
+    }
+
+    private void ApplyFilter()
+    {
+        filteredProducts = InventoryService.Search(string.Empty, filterCategory, filterStatus, "productid", false);
+    }
+
+    private async Task PrintReport()
+    {
+        await JS.InvokeVoidAsync("window.print");
+    }
+}

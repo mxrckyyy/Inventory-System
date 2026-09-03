@@ -1,0 +1,117 @@
+@page "/settings"
+@inject AuthService AuthService
+@inject NavigationManager Navigation
+
+<PageTitle>Settings - Inventory System</PageTitle>
+
+<div class="page-header">
+    <div>
+        <h1>Settings</h1>
+        <p>Manage your application preferences</p>
+    </div>
+</div>
+
+<div class="settings-section">
+    <div class="settings-section-header">
+        <h3>Profile</h3>
+        <p>Your account information</p>
+    </div>
+    <div class="settings-section-body">
+        <div class="settings-row">
+            <div class="settings-label">
+                <h4>Username</h4>
+                <p>@AuthService.CurrentUser?.Username</p>
+            </div>
+        </div>
+        <div class="settings-row">
+            <div class="settings-label">
+                <h4>Full Name</h4>
+                <p>@AuthService.CurrentUser?.FullName</p>
+            </div>
+        </div>
+        <div class="settings-row">
+            <div class="settings-label">
+                <h4>Role</h4>
+                <p>@AuthService.CurrentUser?.Role</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="settings-section">
+    <div class="settings-section-header">
+        <h3>Application</h3>
+        <p>System information</p>
+    </div>
+    <div class="settings-section-body">
+        <div class="settings-row">
+            <div class="settings-label">
+                <h4>Application Name</h4>
+                <p>Inventory System</p>
+            </div>
+        </div>
+        <div class="settings-row">
+            <div class="settings-label">
+                <h4>Version</h4>
+                <p>1.0.0</p>
+            </div>
+        </div>
+        <div class="settings-row">
+            <div class="settings-label">
+                <h4>Framework</h4>
+                <p>ASP.NET Core Blazor (.NET 8)</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="settings-section">
+    <div class="settings-section-header">
+        <h3>Theme</h3>
+        <p>Application appearance</p>
+    </div>
+    <div class="settings-section-body">
+        <div class="settings-row">
+            <div class="settings-label">
+                <h4>Current Theme</h4>
+                <p>Dark</p>
+            </div>
+            <label class="toggle">
+                <input type="checkbox" checked disabled />
+                <span class="slider"></span>
+            </label>
+        </div>
+    </div>
+</div>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        if (!AuthService.IsLoggedIn)
+        {
+            await RedirectToLogin();
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        if (redirectRequested)
+        {
+            redirectRequested = false;
+            var nav = Navigation;
+            if (nav != null)
+            {
+                nav.NavigateTo("/login", forceLoad: false);
+            }
+        }
+    }
+
+    private bool redirectRequested;
+
+    private Task RedirectToLogin()
+    {
+        redirectRequested = true;
+        return Task.CompletedTask;
+    }
+}

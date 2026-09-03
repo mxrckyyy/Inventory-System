@@ -1,0 +1,296 @@
+@page "/categories"
+@inject AuthService AuthService
+@inject NavigationManager Navigation
+@inject CategoryService CategoryService
+@inject InventoryService InventoryService
+@inject ToastService ToastService
+
+<PageTitle>Categories - Inventory System</PageTitle>
+
+<div class="page-header">
+    <div>
+        <h1>Categories</h1>
+        <p>Manage your product categories</p>
+    </div>
+    <div class="page-header-actions">
+        <button class="btn btn-primary" @onclick="ShowAddModal"><i class="bi bi-plus-lg"></i> Add Category</button>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body" style="padding:0;">
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Category</th>
+                        <th>Product Count</th>
+                        <th>Total Quantity</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var cat in categoryData)
+                    {
+                        <tr>
+                            <td style="font-weight:500;">@cat.Name</td>
+                            <td>@cat.ProductCount</td>
+                            <td>@cat.TotalQuantity</td>
+                            <td>
+                                <div class="action-btns">
+                                    <button class="action-btn edit" title="Rename" @onclick="() => ShowRenameModal(cat.Name)"><i class="bi bi-pencil"></i></button>
+                                    <button class="action-btn delete" title="Delete" @onclick="() => ConfirmDelete(cat.Name)"><i class="bi bi-trash"></i></button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                    @if (!categoryData.Any())
+                    {
+                        <tr>
+                            <td colspan="4">
+                                <div class="empty-state">
+                                    <div class="empty-icon"><i class="bi bi-folder2-open"></i></div>
+                                    <h3>No categories found</h3>
+                                    <p>Add a category to get started.</p>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@if (showAddModal)
+{
+    <div class="modal-overlay" @onclick="CloseModals">
+        <div class="modal" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>Add Category</h3>
+                <button class="btn-icon btn-secondary" @onclick="CloseModals" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Category Name *</label>
+                    <input type="text" class="form-control" placeholder="Enter category name" @bind="editCategoryName" @bind:event="oninput" />
+                </div>
+                @if (!string.IsNullOrEmpty(categoryError))
+                {
+                    <div class="form-error">@categoryError</div>
+                }
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary btn-sm" @onclick="CloseModals">Cancel</button>
+                <button class="btn btn-primary btn-sm" @onclick="HandleAddCategory">Add Category</button>
+            </div>
+        </div>
+    </div>
+}
+
+@if (showRenameModal)
+{
+    <div class="modal-overlay" @onclick="CloseModals">
+        <div class="modal" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>Rename Category</h3>
+                <button class="btn-icon btn-secondary" @onclick="CloseModals" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="modal-body">
+                <p style="color:var(--text-secondary);font-size:13px;margin-bottom:12px;">
+                    Renaming <strong style="color:var(--text-primary);">@renameOldName</strong>
+                </p>
+                <div class="form-group">
+                    <label>New Name *</label>
+                    <input type="text" class="form-control" placeholder="Enter new name" @bind="editCategoryName" @bind:event="oninput" />
+                </div>
+                @if (!string.IsNullOrEmpty(categoryError))
+                {
+                    <div class="form-error">@categoryError</div>
+                }
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary btn-sm" @onclick="CloseModals">Cancel</button>
+                <button class="btn btn-primary btn-sm" @onclick="HandleRenameCategory">Save Changes</button>
+            </div>
+        </div>
+    </div>
+}
+
+<ConfirmModal Show="@showDeleteModal"
+              Title="Delete Category"
+              ShowChanged="EventCallback.Factory.Create<bool>(this, val => showDeleteModal = val)"
+              OnConfirmAction="EventCallback.Factory.Create(this, HandleDeleteCategory)">
+    @if (!string.IsNullOrEmpty(deleteError))
+    {
+        <div class="alert alert-error" role="alert">@deleteError</div>
+    }
+    <p style="color:var(--text-secondary);font-size:14px;">
+        Are you sure you want to delete <strong style="color:var(--text-primary);">@deleteCategoryName</strong>?
+    </p>
+</ConfirmModal>
+
+@code {
+    private List<CategoryRowData> categoryData = new();
+
+    private bool showAddModal;
+    private bool showRenameModal;
+    private bool showDeleteModal;
+    private string editCategoryName = string.Empty;
+    private string renameOldName = string.Empty;
+    private string deleteCategoryName = string.Empty;
+    private string categoryError = string.Empty;
+    private string deleteError = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!AuthService.IsLoggedIn)
+        {
+            await RedirectToLogin();
+            return;
+        }
+
+        InventoryService.OnInventoryChanged += LoadData;
+        CategoryService.OnCategoriesChanged += LoadData;
+        LoadData();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        if (redirectRequested)
+        {
+            redirectRequested = false;
+            var nav = Navigation;
+            if (nav != null)
+            {
+                nav.NavigateTo("/login", forceLoad: false);
+            }
+        }
+    }
+
+    private bool redirectRequested;
+
+    private Task RedirectToLogin()
+    {
+        redirectRequested = true;
+        return Task.CompletedTask;
+    }
+
+    private void LoadData()
+    {
+        var categories = CategoryService.GetAll();
+        var allProducts = InventoryService.GetAll();
+
+        categoryData = categories.Select(name =>
+        {
+            var catProducts = allProducts.Where(p => p.Category == name).ToList();
+            return new CategoryRowData
+            {
+                Name = name,
+                ProductCount = catProducts.Count,
+                TotalQuantity = catProducts.Sum(p => p.Quantity)
+            };
+        }).OrderByDescending(c => c.ProductCount).ToList();
+    }
+
+    private void ShowAddModal()
+    {
+        editCategoryName = string.Empty;
+        categoryError = string.Empty;
+        showAddModal = true;
+    }
+
+    private void ShowRenameModal(string currentName)
+    {
+        renameOldName = currentName;
+        editCategoryName = currentName;
+        categoryError = string.Empty;
+        showRenameModal = true;
+    }
+
+    private void ConfirmDelete(string name)
+    {
+        deleteCategoryName = name;
+        deleteError = string.Empty;
+
+        if (CategoryService.IsCategoryInUse(name, InventoryService))
+        {
+            deleteError = $"Cannot delete '{name}' because it is being used by products. Remove or reassign all products first.";
+        }
+
+        showDeleteModal = true;
+    }
+
+    private void CloseModals()
+    {
+        showAddModal = false;
+        showRenameModal = false;
+    }
+
+    private void HandleAddCategory()
+    {
+        categoryError = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(editCategoryName))
+        {
+            categoryError = "Category name is required.";
+            return;
+        }
+
+        if (!CategoryService.AddCategory(editCategoryName))
+        {
+            categoryError = "A category with this name already exists.";
+            return;
+        }
+
+        ToastService.ShowSuccess($"Category '{editCategoryName.Trim()}' has been created.");
+        showAddModal = false;
+        LoadData();
+    }
+
+    private void HandleRenameCategory()
+    {
+        categoryError = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(editCategoryName))
+        {
+            categoryError = "Category name is required.";
+            return;
+        }
+
+        if (!CategoryService.UpdateCategory(renameOldName, editCategoryName))
+        {
+            categoryError = "A category with this name already exists.";
+            return;
+        }
+
+        ToastService.ShowSuccess($"Category renamed to '{editCategoryName.Trim()}'.");
+        showRenameModal = false;
+        LoadData();
+    }
+
+    private void HandleDeleteCategory()
+    {
+        deleteError = string.Empty;
+
+        if (CategoryService.IsCategoryInUse(deleteCategoryName, InventoryService))
+        {
+            deleteError = $"Cannot delete '{deleteCategoryName}' because it is being used by products.";
+            return;
+        }
+
+        CategoryService.DeleteCategory(deleteCategoryName);
+        ToastService.ShowSuccess($"Category '{deleteCategoryName}' has been deleted.");
+        deleteCategoryName = string.Empty;
+        showDeleteModal = false;
+        LoadData();
+    }
+
+    private class CategoryRowData
+    {
+        public string Name { get; set; } = string.Empty;
+        public int ProductCount { get; set; }
+        public int TotalQuantity { get; set; }
+    }
+}

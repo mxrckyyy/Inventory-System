@@ -1,0 +1,39 @@
+@inject ToastService ToastService
+@implements IDisposable
+
+<div class="toast-container">
+    @foreach (var toast in _messages)
+    {
+        <div class="toast @toast.Type">
+            <span class="toast-icon">
+                @if (toast.Type == "success") { <i class="bi bi-check-circle"></i> }
+                else if (toast.Type == "error") { <i class="bi bi-x-circle"></i> }
+                else if (toast.Type == "warning") { <i class="bi bi-exclamation-triangle"></i> }
+                else { <i class="bi bi-info-circle"></i> }
+            </span>
+            <span class="toast-message">@toast.Message</span>
+            <button class="toast-close" @onclick="() => ToastService.Remove(toast)" aria-label="Dismiss"><i class="bi bi-x-lg"></i></button>
+        </div>
+    }
+</div>
+
+@code {
+    private List<ToastMessage> _messages = new();
+
+    protected override void OnInitialized()
+    {
+        ToastService.OnToast += HandleToast;
+        _messages = ToastService.Messages.ToList();
+    }
+
+    private void HandleToast()
+    {
+        _messages = ToastService.Messages.ToList();
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        ToastService.OnToast -= HandleToast;
+    }
+}

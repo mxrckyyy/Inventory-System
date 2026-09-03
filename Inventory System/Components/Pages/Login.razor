@@ -1,0 +1,158 @@
+@page "/login"
+@layout LoginLayout
+@inject AuthService AuthService
+@inject NavigationManager Navigation
+
+<PageTitle>Login - Inventory System</PageTitle>
+
+<div class="login-container">
+    <div class="login-logo">
+        <div class="logo-icon"><i class="bi bi-box-seam"></i></div>
+        <h1>Inventory System</h1>
+        <p>Sign in to your account</p>
+    </div>
+
+    <div class="login-card">
+        <h2>Welcome back</h2>
+        <p class="subtitle">Enter your credentials to continue</p>
+
+        <EditForm Model="loginModel" OnValidSubmit="HandleLogin">
+            <div class="form-group">
+                <label>Username</label>
+                <input type="text"
+                       class="form-control @(showUsernameError ? "is-invalid" : "")"
+                       placeholder="Enter your username"
+                       @bind="loginModel.Username"
+                       @bind:event="oninput"
+                       @onkeydown="HandleKeyDown" />
+                @if (showUsernameError)
+                {
+                    <div class="form-error">@usernameError</div>
+                }
+            </div>
+
+            <div class="form-group">
+                <label>Password</label>
+                <div class="password-wrapper">
+                    <input type="@(showPassword ? "text" : "password")"
+                           class="form-control @(showPasswordError ? "is-invalid" : "")"
+                           placeholder="Enter your password"
+                           @bind="loginModel.Password"
+                           @bind:event="oninput"
+                           @onkeydown="HandleKeyDown" />
+                    <button type="button" class="password-toggle" @onclick="TogglePassword" aria-label="Toggle password visibility">
+                        <i class="bi @(showPassword ? "bi-eye-slash" : "bi-eye")"></i>
+                    </button>
+                </div>
+                @if (showPasswordError)
+                {
+                    <div class="form-error">@passwordError</div>
+                }
+            </div>
+
+            @if (!string.IsNullOrEmpty(loginError))
+            {
+                <div class="alert alert-error" role="alert">@loginError</div>
+            }
+
+            <div class="form-row">
+                <div class="form-check">
+                    <input type="checkbox" id="rememberMe" @bind="loginModel.RememberMe" />
+                    <label for="rememberMe">Remember me</label>
+                </div>
+                <span class="forgot-link">Forgot password?</span>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block" disabled="@isLoggingIn">
+                @if (isLoggingIn)
+                {
+                    <span>Signing in...</span>
+                }
+                else
+                {
+                    <span>Sign In</span>
+                }
+            </button>
+        </EditForm>
+    </div>
+</div>
+
+@code {
+    private LoginModel loginModel = new();
+    private bool showPassword;
+    private bool isLoggingIn;
+    private bool showUsernameError;
+    private bool showPasswordError;
+    private string usernameError = string.Empty;
+    private string passwordError = string.Empty;
+    private string loginError = string.Empty;
+
+    protected override void OnInitialized()
+    {
+        if (AuthService.IsLoggedIn)
+        {
+            Navigation.NavigateTo("/dashboard");
+        }
+    }
+
+    private void TogglePassword()
+    {
+        showPassword = !showPassword;
+    }
+
+    private void HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            HandleLogin();
+        }
+    }
+
+    private void HandleLogin()
+    {
+        loginError = string.Empty;
+        showUsernameError = false;
+        showPasswordError = false;
+        usernameError = string.Empty;
+        passwordError = string.Empty;
+
+        bool valid = true;
+
+        if (string.IsNullOrWhiteSpace(loginModel.Username))
+        {
+            showUsernameError = true;
+            usernameError = "Username is required.";
+            valid = false;
+        }
+
+        if (string.IsNullOrWhiteSpace(loginModel.Password))
+        {
+            showPasswordError = true;
+            passwordError = "Password is required.";
+            valid = false;
+        }
+
+        if (!valid) return;
+
+        isLoggingIn = true;
+
+        var (success, error) = AuthService.Login(loginModel.Username, loginModel.Password);
+
+        if (success)
+        {
+            Navigation.NavigateTo("/dashboard");
+        }
+        else
+        {
+            loginError = error;
+            isLoggingIn = false;
+        }
+    }
+
+    private class LoginModel
+    {
+        public string Username { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+        public bool RememberMe { get; set; }
+    }
+}

@@ -1,0 +1,163 @@
+﻿@inherits LayoutComponentBase
+@inject AuthService AuthService
+@inject NavigationManager Navigation
+
+<div class="app-layout">
+    @if (sidebarOpen)
+    {
+        <div class="sidebar-backdrop" @onclick="CloseSidebar"></div>
+    }
+
+    <aside class="sidebar @(sidebarOpen ? "open" : "")">
+        <div class="sidebar-header">
+            <div class="sidebar-brand">
+                <div class="brand-icon"><i class="bi bi-box-seam"></i></div>
+                <div>
+                    <h2>Inventory</h2>
+                    <span>Management System</span>
+                </div>
+            </div>
+        </div>
+
+        <nav class="sidebar-nav" aria-label="Main navigation">
+            <div class="nav-section">
+                <div class="nav-section-title">Main Menu</div>
+                <NavLink class="nav-item" href="/dashboard" Match="NavLinkMatch.All" @onclick="CloseSidebar">
+                    <span class="nav-icon"><i class="bi bi-speedometer2"></i></span>
+                    Dashboard
+                </NavLink>
+                <NavLink class="nav-item" href="/inventory" @onclick="CloseSidebar">
+                    <span class="nav-icon"><i class="bi bi-box-seam"></i></span>
+                    Inventory
+                </NavLink>
+                <NavLink class="nav-item" href="/categories" @onclick="CloseSidebar">
+                    <span class="nav-icon"><i class="bi bi-folder2-open"></i></span>
+                    Categories
+                </NavLink>
+                <NavLink class="nav-item" href="/reports" @onclick="CloseSidebar">
+                    <span class="nav-icon"><i class="bi bi-file-earmark-bar-graph"></i></span>
+                    Reports
+                </NavLink>
+            </div>
+
+            <div class="nav-section">
+                <div class="nav-section-title">System</div>
+                <NavLink class="nav-item" href="/settings" @onclick="CloseSidebar">
+                    <span class="nav-icon"><i class="bi bi-gear"></i></span>
+                    Settings
+                </NavLink>
+            </div>
+        </nav>
+
+        <div class="sidebar-footer">
+            <div class="nav-item" style="cursor:pointer;" @onclick="Logout">
+                <span class="nav-icon"><i class="bi bi-box-arrow-right"></i></span>
+                Logout
+            </div>
+        </div>
+    </aside>
+
+    <div class="main-content">
+        <header class="header">
+            <div class="header-left">
+                <button class="menu-toggle" @onclick="ToggleSidebar" aria-label="Toggle sidebar">
+                    <i class="bi bi-list"></i>
+                </button>
+                <h2 class="header-title">@GetPageTitle()</h2>
+            </div>
+
+            <div class="header-right">
+                <div class="header-search">
+                    <span class="search-icon"><i class="bi bi-search"></i></span>
+                    <input type="text" placeholder="Search inventory..." @bind="searchQuery" @bind:event="oninput" @onkeydown="HandleSearch" aria-label="Search inventory" />
+                </div>
+
+                <button class="notification-btn" aria-label="Notifications">
+                    <i class="bi bi-bell"></i>
+                    <span class="notification-badge">3</span>
+                </button>
+
+                <div class="user-menu" @onclick="ToggleDropdown" role="button" aria-haspopup="true" aria-expanded="showDropdown">
+                    <div class="user-avatar">AU</div>
+                    <div class="user-info">
+                        <div class="user-name">Admin User</div>
+                        <div class="user-role">Administrator</div>
+                    </div>
+
+                    @if (showDropdown)
+                    {
+                        <div class="user-dropdown" role="menu">
+                            <div class="dropdown-item" role="menuitem" @onclick='() => Navigation.NavigateTo("/settings")'>
+                                <i class="bi bi-person"></i> Profile
+                            </div>
+                            <div class="dropdown-item" role="menuitem" @onclick='() => Navigation.NavigateTo("/settings")'>
+                                <i class="bi bi-gear"></i> Settings
+                            </div>
+                            <div class="dropdown-divider"></div>
+                            <div class="dropdown-item danger" role="menuitem" @onclick="Logout">
+                                <i class="bi bi-box-arrow-right"></i> Logout
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </header>
+
+        <div class="page-content">
+            @Body
+        </div>
+    </div>
+</div>
+
+<Toast />
+
+@code {
+    private bool showDropdown;
+    private bool sidebarOpen;
+    private string searchQuery = string.Empty;
+
+    private string GetPageTitle()
+    {
+        var uri = Navigation.Uri;
+        if (uri.Contains("/dashboard")) return "Dashboard";
+        if (uri.Contains("/inventory/add")) return "Add Product";
+        if (uri.Contains("/inventory/edit")) return "Edit Product";
+        if (uri.Contains("/inventory")) return "Inventory";
+        if (uri.Contains("/categories")) return "Categories";
+        if (uri.Contains("/reports")) return "Reports";
+        if (uri.Contains("/settings")) return "Settings";
+        return "Dashboard";
+    }
+
+    private void ToggleSidebar()
+    {
+        sidebarOpen = !sidebarOpen;
+    }
+
+    private void CloseSidebar()
+    {
+        sidebarOpen = false;
+        showDropdown = false;
+    }
+
+    private void ToggleDropdown()
+    {
+        showDropdown = !showDropdown;
+    }
+
+    private void HandleSearch(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(searchQuery))
+        {
+            CloseSidebar();
+            Navigation.NavigateTo($"/inventory?search={searchQuery}");
+        }
+    }
+
+    private void Logout()
+    {
+        CloseSidebar();
+        AuthService.Logout();
+        Navigation.NavigateTo("/login");
+    }
+}

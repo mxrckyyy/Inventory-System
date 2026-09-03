@@ -1,0 +1,253 @@
+@page "/dashboard"
+@page "/"
+@inject AuthService AuthService
+@inject NavigationManager Navigation
+@inject InventoryService InventoryService
+
+<PageTitle>Dashboard - Inventory System</PageTitle>
+
+<div class="page-header">
+    <div>
+        <h1>Dashboard</h1>
+        <p>Welcome back, @AuthService.CurrentUser?.FullName</p>
+    </div>
+    <div class="page-header-actions">
+        <button class="btn btn-primary" @onclick='() => Navigation.NavigateTo("/inventory")'><i class="bi bi-box-seam"></i> View Inventory</button>
+    </div>
+</div>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-header">
+            <span class="stat-label">Total Products</span>
+            <div class="stat-icon blue"><i class="bi bi-box-seam"></i></div>
+        </div>
+        <div class="stat-value">@stats.TotalProducts</div>
+        <div class="stat-change positive">Active products</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-header">
+            <span class="stat-label">Total Quantity</span>
+            <div class="stat-icon green"><i class="bi bi-clipboard-data"></i></div>
+        </div>
+        <div class="stat-value">@stats.TotalQuantity</div>
+        <div class="stat-change positive">Units in stock</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-header">
+            <span class="stat-label">Inventory Value</span>
+            <div class="stat-icon blue"><i class="bi bi-cash-stack"></i></div>
+        </div>
+        <div class="stat-value">₱@stats.TotalValue.ToString("N2")</div>
+        <div class="stat-change positive">Total value</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-header">
+            <span class="stat-label">Categories</span>
+            <div class="stat-icon yellow"><i class="bi bi-folder2-open"></i></div>
+        </div>
+        <div class="stat-value">@stats.Categories</div>
+        <div class="stat-change positive">Product categories</div>
+    </div>
+</div>
+
+<div class="grid-2" style="margin-bottom: 24px;">
+    <div class="stat-card">
+        <div class="stat-header">
+            <span class="stat-label">Low Stock Products</span>
+            <div class="stat-icon yellow"><i class="bi bi-exclamation-triangle"></i></div>
+        </div>
+        <div class="stat-value">@stats.LowStock</div>
+        <div class="stat-change negative">Needs restocking</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-header">
+            <span class="stat-label">Out of Stock</span>
+            <div class="stat-icon red"><i class="bi bi-x-circle"></i></div>
+        </div>
+        <div class="stat-value">@stats.OutOfStock</div>
+        <div class="stat-change negative">Critical</div>
+    </div>
+</div>
+
+<div class="grid-3" style="margin-bottom: 24px;">
+    <div class="card">
+        <div class="card-header">
+            <h3>Stock Overview</h3>
+        </div>
+        <div class="card-body">
+            <div class="bar-chart">
+                @foreach (var item in stockChartData)
+                {
+                    <div class="bar-item">
+                        <span class="bar-value">@item.Value</span>
+                        <div class="bar" style="height: @(item.Height)px; background: @item.Color;"></div>
+                        <span class="bar-label">@item.Label</span>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h3>Recent Products</h3>
+            <button class="btn btn-secondary btn-sm" @onclick='() => Navigation.NavigateTo("/inventory")'>View All</button>
+        </div>
+        <div class="card-body" style="padding: 0;">
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>Qty</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var p in stats.RecentProducts)
+                        {
+                            <tr>
+                                <td>@p.ProductName</td>
+                                <td style="font-weight:600;">@p.Quantity @p.Unit</td>
+                            </tr>
+                        }
+                        @if (!stats.RecentProducts.Any())
+                        {
+                            <tr><td colspan="2" style="text-align:center;color:var(--text-secondary);padding:20px;">No products yet</td></tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h3>Low Stock Alerts</h3>
+        </div>
+        <div class="card-body" style="padding: 0;">
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>Qty</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var p in stats.LowStockProducts)
+                        {
+                            <tr>
+                                <td>@p.ProductName</td>
+                                <td style="font-weight:600;color:var(--warning);">@p.Quantity @p.Unit</td>
+                            </tr>
+                        }
+                        @if (!stats.LowStockProducts.Any())
+                        {
+                            <tr><td colspan="2" style="text-align:center;color:var(--text-secondary);padding:20px;">No low stock items</td></tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card" style="margin-bottom:24px;">
+    <div class="card-header">
+        <h3>Out of Stock Products</h3>
+    </div>
+    <div class="card-body" style="padding: 0;">
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Product ID</th>
+                        <th>Product Name</th>
+                        <th>Category</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var p in stats.OutOfStockProducts)
+                    {
+                        <tr>
+                            <td style="font-family:monospace;font-weight:600;color:var(--text-secondary);">@p.ProductId</td>
+                            <td style="font-weight:500;">@p.ProductName</td>
+                            <td><span class="badge badge-info">@p.Category</span></td>
+                            <td><span class="badge badge-danger">Out of Stock</span></td>
+                        </tr>
+                    }
+                    @if (!stats.OutOfStockProducts.Any())
+                    {
+                        <tr><td colspan="4" style="text-align:center;color:var(--text-secondary);padding:20px;">All products are in stock</td></tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@code {
+    private DashboardStats stats = new();
+    private List<BarChartData> stockChartData = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!AuthService.IsLoggedIn)
+        {
+            await RedirectToLogin();
+            return;
+        }
+
+        InventoryService.OnInventoryChanged += LoadData;
+        LoadData();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        if (redirectRequested)
+        {
+            redirectRequested = false;
+            var nav = Navigation;
+            if (nav != null)
+            {
+                nav.NavigateTo("/login", forceLoad: false);
+            }
+        }
+    }
+
+    private bool redirectRequested;
+
+    private Task RedirectToLogin()
+    {
+        redirectRequested = true;
+        return Task.CompletedTask;
+    }
+
+    private void LoadData()
+    {
+        stats = InventoryService.GetStats();
+
+        var maxQty = Math.Max(Math.Max(stats.InStock, stats.LowStock), Math.Max(stats.OutOfStock, 1));
+        stockChartData = new List<BarChartData>
+        {
+            new() { Label = "In Stock", Value = stats.InStock, Height = Math.Max((int)(stats.InStock * 150.0 / maxQty), 8), Color = "var(--success)" },
+            new() { Label = "Low Stock", Value = stats.LowStock, Height = Math.Max((int)(stats.LowStock * 150.0 / maxQty), 8), Color = "var(--warning)" },
+            new() { Label = "Out of Stock", Value = stats.OutOfStock, Height = Math.Max((int)(stats.OutOfStock * 150.0 / maxQty), 8), Color = "var(--error)" },
+        };
+    }
+
+    private class BarChartData
+    {
+        public string Label { get; set; } = string.Empty;
+        public int Value { get; set; }
+        public int Height { get; set; }
+        public string Color { get; set; } = string.Empty;
+    }
+}
