@@ -8,4 +8,4 @@ FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
 WORKDIR /app
 COPY --from=build /app/publish .
 ENV DOTNET_USE_POLLING_FILE_WATCHER=true
-ENTRYPOINT ["dotnet", "Inventory System.dll"]
+ENTRYPOINT ["dotnet", "Inventory_System.dll"]
