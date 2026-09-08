@@ -108,6 +108,19 @@ a:focus-visible,
 }
 
 /* ============================================================
+   RESPONSIVE UTILITIES
+   ============================================================ */
+
+.w-100 { width: 100% !important; }
+.h-100 { height: 100% !important; }
+.overflow-x-hidden { overflow-x: hidden !important; }
+.overflow-x-auto { overflow-x: auto !important; -webkit-overflow-scrolling: touch; }
+.max-w-md { max-width: 448px; margin-inline: auto; }
+.px-4 { padding-left: 16px !important; padding-right: 16px !important; }
+.mb-2 { margin-bottom: 8px !important; }
+.d-block { display: block !important; }
+
+/* ============================================================
    LOGIN
    ============================================================ */
 
@@ -122,7 +135,8 @@ a:focus-visible,
 
 .login-container {
     width: 100%;
-    max-width: 420px;
+    max-width: 448px;
+    margin-inline: auto;
 }
 
 .login-logo {
@@ -842,7 +856,7 @@ textarea.form-control {
 
 .stats-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
     gap: 16px;
     margin-bottom: 24px;
 }
@@ -853,6 +867,7 @@ textarea.form-control {
     border-radius: var(--radius-lg);
     padding: 20px;
     transition: border-color var(--transition-fast);
+    min-width: 0;
 }
 
 .stat-card:hover {
@@ -906,6 +921,8 @@ textarea.form-control {
     font-weight: 700;
     color: var(--text-primary);
     margin-bottom: 4px;
+    overflow-wrap: break-word;
+    word-break: break-word;
 }
 
 .stat-card .stat-change {
@@ -924,9 +941,11 @@ textarea.form-control {
    TABLES
    ============================================================ */
 
-.table-container {
+.table-container,
+.table-responsive {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    max-width: 100%;
 }
 
 table {
@@ -1016,6 +1035,10 @@ tbody tr:last-child td {
     font-weight: 700;
 }
 
+.page-header > div {
+    min-width: 0;
+}
+
 .page-header p {
     font-size: 14px;
     color: var(--text-secondary);
@@ -1026,6 +1049,8 @@ tbody tr:last-child td {
     display: flex;
     gap: 8px;
     flex-wrap: wrap;
+    margin-left: auto;
+    flex-shrink: 0;
 }
 
 .toolbar {
@@ -1390,6 +1415,12 @@ tbody tr:last-child td {
 .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
 .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
 
+.grid-2 > *,
+.grid-3 > *,
+.grid-4 > * {
+    min-width: 0;
+}
+
 /* ============================================================
    CATEGORY CARDS
    ============================================================ */
@@ -1400,6 +1431,8 @@ tbody tr:last-child td {
     border-radius: var(--radius-lg);
     padding: 20px;
     transition: border-color var(--transition-fast);
+    min-width: 0;
+    overflow-wrap: break-word;
 }
 
 .category-card:hover {
@@ -1450,7 +1483,7 @@ tbody tr:last-child td {
 
 .report-summary {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
     gap: 16px;
     margin-bottom: 24px;
 }
@@ -1461,12 +1494,15 @@ tbody tr:last-child td {
     border-radius: var(--radius-lg);
     padding: 20px;
     text-align: center;
+    min-width: 0;
 }
 
 .report-card .report-value {
     font-size: 28px;
     font-weight: 700;
     margin-bottom: 4px;
+    overflow-wrap: break-word;
+    word-break: break-word;
 }
 
 .report-card .report-label {
@@ -1633,6 +1669,17 @@ tbody tr:last-child td {
 
     .header {
         padding: 0 16px;
+    }
+
+    .toolbar .search-box {
+        flex: 1 1 100%;
+        max-width: none;
+        min-width: 0;
+    }
+
+    .toolbar select {
+        flex: 1 1 140px;
+        min-width: 0;
     }
 }
 
