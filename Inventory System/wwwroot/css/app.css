@@ -39,6 +39,18 @@ html, body {
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+}
+
+body {
+    min-width: 320px;
+    -webkit-tap-highlight-color: transparent;
+}
+
+@media (min-width: 2000px) {
+    html {
+        font-size: 18px;
+    }
 }
 
 a {
@@ -604,10 +616,14 @@ textarea.form-control {
 
 .header-search {
     position: relative;
+    flex: 1;
+    min-width: 0;
+    max-width: 280px;
 }
 
 .header-search input {
-    width: 260px;
+    width: 100%;
+    min-width: 0;
     padding: 8px 12px 8px 36px;
     background: var(--bg-input);
     border: 1px solid var(--border-color);
@@ -736,6 +752,7 @@ textarea.form-control {
     right: 0;
     margin-top: 8px;
     width: 200px;
+    max-width: calc(100vw - 32px);
     background: var(--bg-card);
     border: 1px solid var(--border-color);
     border-radius: var(--radius);
@@ -784,6 +801,9 @@ textarea.form-control {
 /* Page Content */
 .page-content {
     flex: 1;
+    width: 100%;
+    max-width: 1600px;
+    margin: 0 auto;
     padding: 24px;
 }
 
@@ -1204,6 +1224,8 @@ tbody tr:last-child td {
     border-radius: var(--radius-lg);
     width: 100%;
     max-width: 480px;
+    max-height: calc(100vh - 40px);
+    overflow-y: auto;
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
     animation: modalIn var(--transition-slow);
 }
@@ -1601,8 +1623,16 @@ tbody tr:last-child td {
         display: none;
     }
 
-    .header-search input {
-        width: 180px;
+    .header-search {
+        max-width: 200px;
+    }
+
+    .header-right {
+        gap: 8px;
+    }
+
+    .header {
+        padding: 0 16px;
     }
 }
 
@@ -1612,12 +1642,18 @@ tbody tr:last-child td {
 
 @media (max-width: 768px) {
     .sidebar {
+        width: min(var(--sidebar-width), 85vw);
         transform: translateX(-100%);
         box-shadow: 2px 0 10px rgba(0, 0, 0, 0.3);
+        padding-bottom: env(safe-area-inset-bottom);
     }
 
     .sidebar.open {
         transform: translateX(0);
+    }
+
+    .sidebar-close {
+        display: inline-flex;
     }
 
     .sidebar-backdrop {
@@ -1630,6 +1666,7 @@ tbody tr:last-child td {
 
     .main-content {
         margin-left: 0;
+        padding-bottom: env(safe-area-inset-bottom);
     }
 
     .menu-toggle {
@@ -1637,7 +1674,24 @@ tbody tr:last-child td {
     }
 
     .header {
-        padding: 0 16px;
+        padding: 0 12px;
+        gap: 8px;
+    }
+
+    .header-left {
+        gap: 8px;
+        min-width: 0;
+    }
+
+    .header-title {
+        font-size: 16px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .header-right {
+        gap: 8px;
     }
 
     .header-search {
@@ -1653,6 +1707,14 @@ tbody tr:last-child td {
     .grid-3,
     .grid-4 {
         grid-template-columns: 1fr;
+    }
+
+    .page-header {
+        gap: 12px;
+    }
+
+    .page-header-actions .btn {
+        flex: 1;
     }
 
     .toolbar {
@@ -1674,16 +1736,68 @@ tbody tr:last-child td {
         gap: 8px;
     }
 
+    .form-control,
+    .toolbar select,
+    .toolbar .search-box input {
+        min-height: 44px;
+    }
+
+    .form-actions .btn,
+    .modal-footer .btn {
+        flex: 1;
+    }
+
     .toast {
-        min-width: calc(100vw - 40px);
+        min-width: calc(100vw - 36px);
+        max-width: calc(100vw - 24px);
     }
 
     .modal {
         max-width: 100%;
+        max-height: calc(100vh - 32px);
+    }
+
+    .modal-header {
+        padding: 16px;
+    }
+
+    .modal-body {
+        padding: 20px 16px;
+    }
+
+    .modal-footer {
+        padding: 14px 16px;
+    }
+
+    .login-page {
+        padding: 16px;
+    }
+
+    .login-card {
+        padding: 24px;
     }
 
     .report-summary {
         grid-template-columns: repeat(2, 1fr);
+    }
+
+    thead th,
+    tbody td {
+        padding: 10px 12px;
+        font-size: 13px;
+    }
+
+    .pagination {
+        justify-content: center;
+    }
+
+    .page-info {
+        width: 100%;
+        text-align: center;
+    }
+
+    .settings-row {
+        flex-wrap: wrap;
     }
 }
 
@@ -1697,11 +1811,49 @@ tbody tr:last-child td {
     }
 
     .header-title {
-        font-size: 16px;
+        font-size: 15px;
     }
 
     .page-header h1 {
         font-size: 20px;
+    }
+
+    .page-content {
+        padding: 12px;
+    }
+
+    .login-page {
+        padding: 12px;
+    }
+
+    .login-card {
+        padding: 20px 16px;
+    }
+
+    .login-logo {
+        margin-bottom: 24px;
+    }
+
+    .login-logo .logo-icon {
+        width: 48px;
+        height: 48px;
+        font-size: 20px;
+    }
+
+    .login-logo h1 {
+        font-size: 20px;
+    }
+
+    .toast-container {
+        top: 12px;
+        left: 12px;
+        right: 12px;
+    }
+
+    .toast {
+        width: 100%;
+        min-width: 0;
+        max-width: none;
     }
 
     .stat-card .stat-value {
@@ -1714,6 +1866,93 @@ tbody tr:last-child td {
 
     .card-body {
         padding: 16px;
+    }
+
+    .bar-chart {
+        padding: 0 8px;
+        gap: 8px;
+    }
+
+    .bar-label {
+        font-size: 10px;
+    }
+
+    .page-btns {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+}
+
+/* ============================================================
+   SIDEBAR CLOSE BUTTON (mobile drawer)
+   ============================================================ */
+
+.sidebar-close {
+    display: none;
+    position: absolute;
+    top: 16px;
+    right: 12px;
+    color: var(--text-secondary);
+}
+
+.sidebar-header {
+    position: relative;
+}
+
+.sidebar-close:hover {
+    background: var(--border-color);
+    color: var(--text-primary);
+}
+
+/* ============================================================
+   RESPONSIVE - TOUCH / COARSE POINTER
+   Enlarge interactive targets for touchscreens (40px+)
+   ============================================================ */
+
+@media (pointer: coarse) {
+    .btn-sm {
+        padding: 10px 16px;
+        font-size: 14px;
+    }
+
+    .action-btn,
+    .page-btn {
+        width: 40px;
+        height: 40px;
+        font-size: 17px;
+    }
+
+    .menu-toggle,
+    .notification-btn,
+    .btn-icon {
+        width: 40px;
+        height: 40px;
+    }
+
+    .nav-item {
+        padding: 12px 14px;
+    }
+
+    .dropdown-item {
+        padding: 12px 14px;
+    }
+
+    .toast-close {
+        padding: 8px;
+    }
+
+    .password-toggle {
+        padding: 8px;
+    }
+
+    .user-menu {
+        padding: 6px 8px;
+    }
+
+    .form-control,
+    .toolbar select,
+    .toolbar .search-box input {
+        min-height: 44px;
     }
 }
 
