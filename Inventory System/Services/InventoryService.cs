@@ -14,6 +14,22 @@ public class InventoryService
         SeedData();
     }
 
+    public string GenerateNextProductId()
+    {
+        var maxNum = _products
+            .Select(p => p.ProductId)
+            .Where(id => id.StartsWith("P", StringComparison.OrdinalIgnoreCase) && id.Length > 1)
+            .Select(id =>
+            {
+                var numPart = id[1..];
+                return int.TryParse(numPart, out var n) ? n : 0;
+            })
+            .DefaultIfEmpty(0)
+            .Max();
+
+        return $"P{(maxNum + 1):D3}";
+    }
+
     public List<Product> GetProducts() => _products.ToList();
 
     public List<Product> GetAll() => _products.ToList();

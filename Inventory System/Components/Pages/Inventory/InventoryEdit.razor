@@ -43,12 +43,7 @@ else
                 <div class="grid-2" style="margin-bottom: 0;">
                     <div class="form-group">
                         <label>Product ID *</label>
-                        <input type="text" class="form-control" placeholder="e.g. P005" @bind="product.ProductId" @bind:event="oninput" />
-                        <ValidationMessage For="() => product.ProductId" />
-                        @if (!string.IsNullOrEmpty(productIdError))
-                        {
-                            <div class="form-error">@productIdError</div>
-                        }
+                        <input type="text" class="form-control" value="@product.ProductId" readonly />
                     </div>
 
                     <div class="form-group">
@@ -129,7 +124,6 @@ else
     [Parameter] public int Id { get; set; }
     private Product? product;
     private List<string> categories = new();
-    private string productIdError = string.Empty;
     private bool showSuccessModal;
 
     protected override async Task OnInitializedAsync()
@@ -169,16 +163,6 @@ else
     private void HandleSubmit()
     {
         if (product == null) return;
-        productIdError = string.Empty;
-
-        if (!string.IsNullOrWhiteSpace(product.ProductId))
-        {
-            product.ProductId = product.ProductId.Trim();
-            if (InventoryService.IsProductIdExists(product.ProductId, product.Id))
-            {
-                productIdError = "Product ID already exists.";
-            }
-        }
 
         if (!string.IsNullOrWhiteSpace(product.ProductName))
             product.ProductName = product.ProductName.Trim();
@@ -186,8 +170,7 @@ else
         if (!string.IsNullOrWhiteSpace(product.Unit))
             product.Unit = product.Unit.Trim();
 
-        if (!string.IsNullOrEmpty(productIdError) || string.IsNullOrEmpty(product.ProductId) ||
-            string.IsNullOrEmpty(product.ProductName) || string.IsNullOrEmpty(product.Category) ||
+        if (string.IsNullOrEmpty(product.ProductId) || string.IsNullOrEmpty(product.ProductName) || string.IsNullOrEmpty(product.Category) ||
             product.Price <= 0 || product.Quantity < 0 || product.MinimumStockLevel < 0)
         {
             return;
