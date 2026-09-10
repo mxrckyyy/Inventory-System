@@ -8,6 +8,8 @@
 
 <PageTitle>Inventory - Inventory System</PageTitle>
 
+@if (AuthService.IsLoggedIn)
+{
 <div class="page-header">
     <div>
         <h1>Inventory</h1>
@@ -188,6 +190,7 @@
         Are you sure you want to delete <strong style="color:var(--text-primary);">@(productToDelete?.ProductName)</strong> (@productToDelete?.ProductId)? This action cannot be undone.
     </p>
 </ConfirmModal>
+}
 
 @code {
     private List<Product> allProducts = new();

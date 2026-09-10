@@ -5,6 +5,8 @@
 
 <PageTitle>Settings - Inventory System</PageTitle>
 
+@if (AuthService.IsLoggedIn)
+{
 <div class="page-header">
     <div>
         <h1>Settings</h1>
@@ -84,6 +86,7 @@
         </div>
     </div>
 </div>
+}
 
 @code {
     protected override async Task OnInitializedAsync()

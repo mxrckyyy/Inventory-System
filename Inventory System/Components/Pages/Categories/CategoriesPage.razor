@@ -8,6 +8,8 @@
 
 <PageTitle>Categories - Inventory System</PageTitle>
 
+@if (AuthService.IsLoggedIn)
+{
 <div class="page-header">
     <div>
         <h1>Categories</h1>
@@ -130,6 +132,7 @@
         Are you sure you want to delete <strong style="color:var(--text-primary);">@deleteCategoryName</strong>?
     </p>
 </ConfirmModal>
+}
 
 @code {
     private List<CategoryRowData> categoryData = new();

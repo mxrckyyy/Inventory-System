@@ -7,6 +7,8 @@
 
 <PageTitle>Dashboard - Inventory System</PageTitle>
 
+@if (AuthService.IsLoggedIn)
+{
 <div class="page-header">
     <div>
         <h1>Dashboard</h1>
@@ -192,6 +194,7 @@
         </div>
     </div>
 </div>
+}
 
 @code {
     private DashboardStats stats = new();

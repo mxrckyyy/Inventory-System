@@ -8,6 +8,8 @@
 
 <PageTitle>Add Product - Inventory System</PageTitle>
 
+@if (AuthService.IsLoggedIn)
+{
 <div class="page-header">
     <div>
         <h1>Add New Product</h1>
@@ -105,6 +107,7 @@
             </div>
         </div>
     </div>
+}
 }
 
 @code {
