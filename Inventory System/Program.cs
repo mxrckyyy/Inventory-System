@@ -8,8 +8,8 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? "Server=localhost;Port=3306;Database=InventoryDb;User=root;Password=yourpassword;";
+var connectionString = ResolveConnectionString(builder.Configuration, out var source);
+Console.WriteLine("[Inventory System] Database source: " + source);
 
 var mySqlVersion = builder.Configuration.GetSection("MySql")["Version"] ?? "10.4";
 var serverType = builder.Configuration.GetSection("MySql")["ServerType"] ?? "MariaDb";
@@ -19,7 +19,11 @@ ServerVersion serverVersion = serverType.Equals("MariaDb", StringComparison.Ordi
     : new MySqlServerVersion(new Version(mySqlVersion));
 
 builder.Services.AddDbContextFactory<InventoryDbContext>(options =>
-    options.UseMySql(connectionString, serverVersion));
+    options.UseMySql(connectionString, serverVersion,
+        mySqlOptions => mySqlOptions.EnableRetryOnFailure(
+            maxRetryCount: 3,
+            maxRetryDelay: TimeSpan.FromSeconds(5),
+            errorNumbersToAdd: null)));
 
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<InventoryService>();
@@ -58,6 +62,65 @@ app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
 app.Run();
+
+static string ResolveConnectionString(IConfiguration configuration, out string source)
+{
+    var configured = configuration.GetConnectionString("DefaultConnection");
+    if (!string.IsNullOrWhiteSpace(configured))
+    {
+        source = "DefaultConnection (appsettings.json or ConnectionStrings__DefaultConnection)";
+        return configured.Trim();
+    }
+
+    var databaseUrl = configuration["DATABASE_URL"];
+    if (!string.IsNullOrWhiteSpace(databaseUrl))
+    {
+        source = "DATABASE_URL environment variable";
+        return ConvertDatabaseUrl(databaseUrl.Trim());
+    }
+
+    source = "NOT CONFIGURED - using ephemeral fallback; database features are disabled until a connection string is provided";
+    return "Server=127.0.0.1;Port=3306;Database=inventory_db;User=root;Password=;Connection Timeout=2;";
+}
+
+static string ConvertDatabaseUrl(string databaseUrl)
+{
+    var normalized = databaseUrl;
+    if (normalized.StartsWith("mariadb://", StringComparison.OrdinalIgnoreCase))
+    {
+        normalized = "mysql://" + normalized.Substring("mariadb://".Length);
+    }
+
+    if (!normalized.StartsWith("mysql://", StringComparison.OrdinalIgnoreCase))
+    {
+        return normalized;
+    }
+
+    var uri = new Uri(normalized);
+    var userInfo = uri.UserInfo;
+    var user = string.Empty;
+    var password = string.Empty;
+    var separator = userInfo.IndexOf(':');
+    if (separator >= 0)
+    {
+        user = userInfo.Substring(0, separator);
+        password = userInfo.Substring(separator + 1);
+    }
+    else
+    {
+        user = userInfo;
+    }
+
+    var database = uri.AbsolutePath.Trim('/');
+    if (database.Length == 0) database = "inventory_db";
+    var port = uri.IsDefaultPort ? 3306 : uri.Port;
+
+    return "Server=" + uri.Host
+         + ";Port=" + port
+         + ";Database=" + Uri.UnescapeDataString(database)
+         + ";User=" + Uri.UnescapeDataString(user)
+         + ";Password=" + Uri.UnescapeDataString(password) + ";";
+}
 
 static string[] SelectStartupUrls()
 {

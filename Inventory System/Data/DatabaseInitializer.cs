@@ -1,6 +1,8 @@
 using Inventory_System.Models;
 using Inventory_System.Services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace Inventory_System.Data;
 
@@ -8,15 +10,56 @@ public static class DatabaseInitializer
 {
     public static async Task InitializeAsync(IServiceProvider services)
     {
+        var logger = services.GetRequiredService<ILoggerFactory>().CreateLogger("Inventory.Data.DatabaseInitializer");
         var factory = services.GetRequiredService<IDbContextFactory<InventoryDbContext>>();
+
         await using var db = await factory.CreateDbContextAsync();
 
-        await db.Database.MigrateAsync();
+        if (!await CanConnectAsync(db, logger)) return;
 
-        await SeedRolesAsync(db);
-        await SeedUsersAsync(db);
-        await SeedCategoriesAsync(db);
-        await SeedProductsAsync(db);
+        await RunStepAsync(() => db.Database.MigrateAsync(), logger, "database migrations");
+        await RunStepAsync(() => SeedRolesAsync(db), logger, "role seeding");
+        await RunStepAsync(() => SeedUsersAsync(db), logger, "user seeding");
+        await RunStepAsync(() => SeedCategoriesAsync(db), logger, "category seeding");
+        await RunStepAsync(() => SeedProductsAsync(db), logger, "product seeding");
+    }
+
+    private static async Task<bool> CanConnectAsync(InventoryDbContext db, ILogger logger)
+    {
+        try
+        {
+            if (await db.Database.CanConnectAsync())
+            {
+                logger.LogInformation("Database connection succeeded. Applying startup initialization.");
+                return true;
+            }
+
+            logger.LogWarning(
+                "Database is not reachable at startup. The application will keep running so health checks pass, " +
+                "but database features are unavailable. Configure ConnectionStrings:DefaultConnection " +
+                "(or ConnectionStrings__DefaultConnection / DATABASE_URL on the host) and redeploy.");
+            return false;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex,
+                "Failed to connect to the database at startup. The application will keep running so health checks pass, " +
+                "but database features are unavailable.");
+            return false;
+        }
+    }
+
+    private static async Task RunStepAsync(Func<Task> step, ILogger logger, string stepName)
+    {
+        try
+        {
+            await step();
+            logger.LogInformation("Startup step completed: {StepName}.", stepName);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Startup step failed: {StepName}. The application will continue running.", stepName);
+        }
     }
 
     private static async Task SeedRolesAsync(InventoryDbContext db)

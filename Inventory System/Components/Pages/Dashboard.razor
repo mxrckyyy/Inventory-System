@@ -4,8 +4,16 @@
 @inject AuthService AuthService
 @inject NavigationManager Navigation
 @inject InventoryService InventoryService
+@inject ILogger<Dashboard> Logger
 
 <PageTitle>Dashboard - Inventory System</PageTitle>
+
+@if (databaseError.Length > 0)
+{
+    <div class="alert alert-error" role="alert" style="margin-bottom:20px;">
+        <strong>Database setup required.</strong> @databaseError
+    </div>
+}
 
 @if (AuthService.IsLoggedIn)
 {
@@ -199,6 +207,7 @@
 @code {
     private DashboardStats stats = new();
     private List<BarChartData> stockChartData = new();
+    private string databaseError = string.Empty;
 
     protected override async Task OnInitializedAsync()
     {
@@ -236,7 +245,21 @@
 
     private void LoadData()
     {
-        stats = InventoryService.GetStats();
+        databaseError = string.Empty;
+
+        try
+        {
+            stats = InventoryService.GetStats();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Dashboard could not load statistics - the database is unavailable.");
+            databaseError =
+                "The database is currently unavailable. Make sure a connection string is configured " +
+                "(ConnectionStrings:DefaultConnection, ConnectionStrings__DefaultConnection, or DATABASE_URL on the host) " +
+                "and that the MySQL/MariaDB service is running.";
+            return;
+        }
 
         var maxQty = Math.Max(Math.Max(stats.InStock, stats.LowStock), Math.Max(stats.OutOfStock, 1));
         stockChartData = new List<BarChartData>
