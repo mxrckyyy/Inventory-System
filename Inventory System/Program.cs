@@ -11,6 +11,11 @@ builder.Services.AddRazorComponents()
 var connectionString = ResolveConnectionString(builder.Configuration, out var source);
 Console.WriteLine("[Inventory System] Database source: " + source);
 
+if (connectionString.IndexOf("Connection Timeout", StringComparison.OrdinalIgnoreCase) < 0)
+{
+    connectionString = connectionString.Trim().TrimEnd(';') + ";Connection Timeout=5;";
+}
+
 var mySqlVersion = builder.Configuration.GetSection("MySql")["Version"] ?? "10.4";
 var serverType = builder.Configuration.GetSection("MySql")["ServerType"] ?? "MariaDb";
 
@@ -22,7 +27,7 @@ builder.Services.AddDbContextFactory<InventoryDbContext>(options =>
     options.UseMySql(connectionString, serverVersion,
         mySqlOptions => mySqlOptions.EnableRetryOnFailure(
             maxRetryCount: 3,
-            maxRetryDelay: TimeSpan.FromSeconds(5),
+            maxRetryDelay: TimeSpan.FromSeconds(2),
             errorNumbersToAdd: null)));
 
 builder.Services.AddScoped<AuthService>();

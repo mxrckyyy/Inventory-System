@@ -3,6 +3,7 @@
 @rendermode InteractiveServer
 @inject AuthService AuthService
 @inject NavigationManager Navigation
+@inject ILogger<Login> Logger
 
 <PageTitle>Login - Inventory System</PageTitle>
 
@@ -104,15 +105,15 @@
         showPassword = !showPassword;
     }
 
-    private void HandleKeyDown(KeyboardEventArgs e)
+    private async Task HandleKeyDown(KeyboardEventArgs e)
     {
         if (e.Key == "Enter")
         {
-            HandleLogin();
+            await HandleLogin();
         }
     }
 
-    private void HandleLogin()
+    private async Task HandleLogin()
     {
         loginError = string.Empty;
         usernameError = string.Empty;
@@ -125,15 +126,26 @@
 
         isLoggingIn = true;
 
-        var (success, error) = AuthService.Login(loginModel.Username, loginModel.Password);
+        try
+        {
+            var (success, error) = await AuthService.LoginAsync(loginModel.Username, loginModel.Password);
 
-        if (success)
-        {
-            Navigation.NavigateTo("/dashboard");
+            if (success)
+            {
+                Navigation.NavigateTo("/dashboard");
+            }
+            else
+            {
+                loginError = error;
+            }
         }
-        else
+        catch (Exception ex)
         {
-            loginError = error;
+            Logger.LogError(ex, "Unexpected error during login.");
+            loginError = "Unable to connect to server or invalid credentials. Please try again.";
+        }
+        finally
+        {
             isLoggingIn = false;
         }
     }

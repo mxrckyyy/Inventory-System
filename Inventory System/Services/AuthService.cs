@@ -1,12 +1,14 @@
 using Inventory_System.Data;
 using Inventory_System.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Inventory_System.Services;
 
 public class AuthService
 {
     private readonly IDbContextFactory<InventoryDbContext> _dbFactory;
+    private readonly ILogger<AuthService> _logger;
     private SessionUser? _currentUser;
     private bool _isLoggedIn;
 
@@ -16,53 +18,67 @@ public class AuthService
 
     public SessionUser? CurrentUser => _currentUser;
 
-    public AuthService(IDbContextFactory<InventoryDbContext> dbFactory)
+    public AuthService(IDbContextFactory<InventoryDbContext> dbFactory, ILogger<AuthService> logger)
     {
         _dbFactory = dbFactory;
+        _logger = logger;
     }
 
-    public (bool Success, string Error) Login(string username, string password)
+    public async Task<(bool Success, string Error)> LoginAsync(string username, string password)
     {
-        if (string.IsNullOrWhiteSpace(username))
+        var trimmedUsername = InputValidator.TrimSpaces(username);
+
+        if (InputValidator.RequiredError(trimmedUsername, "Username").Length > 0)
             return (false, "Username is required.");
 
-        if (string.IsNullOrWhiteSpace(password))
+        if (InputValidator.RequiredError(password, "Password").Length > 0)
             return (false, "Password is required.");
 
-        using var db = _dbFactory.CreateDbContext();
+        await using var db = await _dbFactory.CreateDbContextAsync();
 
-        var user = db.Users
-            .Include(u => u.UserRoles)
-            .ThenInclude(ur => ur.Role)
-            .FirstOrDefault(u => u.Username == username.Trim() && u.IsActive);
-
-        if (user == null || !PasswordHasher.Verify(user.PasswordHash, password))
-            return (false, "Invalid username or password.");
-
-        _currentUser = new SessionUser
+        try
         {
-            Id = user.Id,
-            Username = user.Username,
-            FullName = user.FullName,
-            Avatar = user.Avatar,
-            Roles = user.UserRoles.Select(ur => ur.Role.Name).ToList()
-        };
-        _isLoggedIn = true;
-        OnAuthStateChanged?.Invoke();
+            var user = await db.Users
+                .Include(u => u.UserRoles)
+                .ThenInclude(ur => ur.Role)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.Username == trimmedUsername && u.IsActive);
 
-        db.ActivityLogs.Add(new ActivityLog
+            if (user == null || !PasswordHasher.Verify(user.PasswordHash, password))
+                return (false, "Invalid username or password.");
+
+            _currentUser = new SessionUser
+            {
+                Id = user.Id,
+                Username = user.Username,
+                FullName = user.FullName,
+                Avatar = user.Avatar,
+                Roles = user.UserRoles.Select(ur => ur.Role.Name).ToList()
+            };
+            _isLoggedIn = true;
+            OnAuthStateChanged?.Invoke();
+
+            db.ActivityLogs.Add(new ActivityLog
+            {
+                UserId = user.Id,
+                Username = user.Username,
+                Action = "LOGIN",
+                EntityType = "Auth",
+                EntityId = user.Id,
+                Details = $"User '{user.Username}' signed in.",
+                Timestamp = DateTime.Now
+            });
+            await db.SaveChangesAsync();
+
+            return (true, string.Empty);
+        }
+        catch (Exception ex)
         {
-            UserId = user.Id,
-            Username = user.Username,
-            Action = "LOGIN",
-            EntityType = "Auth",
-            EntityId = user.Id,
-            Details = $"User '{user.Username}' signed in.",
-            Timestamp = DateTime.Now
-        });
-        db.SaveChanges();
-
-        return (true, string.Empty);
+            _logger.LogError(ex, "Login failed due to a database error for user '{Username}'.", trimmedUsername);
+            _isLoggedIn = false;
+            _currentUser = null;
+            return (false, "Unable to connect to the database or invalid credentials. Please try again.");
+        }
     }
 
     public Dictionary<string, string> Register(string username, string password, string confirmPassword, string fullName, string roleName)
