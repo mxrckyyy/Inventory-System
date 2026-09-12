@@ -1,26 +1,59 @@
+using Inventory_System.Data;
+using Inventory_System.Models;
+using Microsoft.EntityFrameworkCore;
+
 namespace Inventory_System.Services;
 
 public class CategoryService
 {
-    private List<string> _categories = new();
+    private readonly IDbContextFactory<InventoryDbContext> _dbFactory;
+    private readonly AuthService _authService;
 
     public event Action? OnCategoriesChanged;
 
-    public CategoryService()
+    public CategoryService(IDbContextFactory<InventoryDbContext> dbFactory, AuthService authService)
     {
-        SeedData();
+        _dbFactory = dbFactory;
+        _authService = authService;
     }
 
-    public List<string> GetAll() => _categories.ToList();
+    public List<string> GetAll()
+    {
+        using var db = _dbFactory.CreateDbContext();
+        return db.Categories.Select(c => c.Name).OrderBy(c => c).ToList();
+    }
 
     public bool AddCategory(string name)
     {
         if (string.IsNullOrWhiteSpace(name)) return false;
         var trimmed = name.Trim();
-        if (_categories.Any(c => c.Equals(trimmed, StringComparison.OrdinalIgnoreCase)))
-            return false;
 
-        _categories.Add(trimmed);
+        using var db = _dbFactory.CreateDbContext();
+
+        if (db.Categories.Any(c => c.Name == trimmed)) return false;
+
+        var category = new Category
+        {
+            Name = trimmed,
+            CreatedByUserId = _authService.CurrentUser?.Id,
+            UpdatedByUserId = _authService.CurrentUser?.Id
+        };
+        db.Categories.Add(category);
+        db.SaveChanges();
+
+        var actor = _authService.CurrentUser;
+        db.ActivityLogs.Add(new ActivityLog
+        {
+            UserId = actor?.Id,
+            Username = actor?.Username ?? "System",
+            Action = "CATEGORY_CREATED",
+            EntityType = "Category",
+            EntityId = category.Id,
+            Details = $"Created category '{trimmed}'.",
+            Timestamp = DateTime.Now
+        });
+        db.SaveChanges();
+
         OnCategoriesChanged?.Invoke();
         return true;
     }
@@ -30,14 +63,35 @@ public class CategoryService
         if (string.IsNullOrWhiteSpace(oldName) || string.IsNullOrWhiteSpace(newName)) return false;
         var trimmedNew = newName.Trim();
 
-        if (_categories.Any(c => c.Equals(trimmedNew, StringComparison.OrdinalIgnoreCase) &&
-                                  !c.Equals(oldName, StringComparison.OrdinalIgnoreCase)))
-            return false;
+        using var db = _dbFactory.CreateDbContext();
 
-        var index = _categories.FindIndex(c => c.Equals(oldName.Trim(), StringComparison.OrdinalIgnoreCase));
-        if (index < 0) return false;
+        if (db.Categories.Any(c => c.Name == trimmedNew && c.Name != oldName)) return false;
 
-        _categories[index] = trimmedNew;
+        var category = db.Categories.FirstOrDefault(c => c.Name == oldName);
+        if (category == null) return false;
+
+        category.Name = trimmedNew;
+        category.UpdatedAt = DateTime.Now;
+        category.UpdatedByUserId = _authService.CurrentUser?.Id;
+
+        if (db.Entry(category).State != EntityState.Modified)
+            db.Entry(category).State = EntityState.Modified;
+
+        db.SaveChanges();
+
+        var actor = _authService.CurrentUser;
+        db.ActivityLogs.Add(new ActivityLog
+        {
+            UserId = actor?.Id,
+            Username = actor?.Username ?? "System",
+            Action = "CATEGORY_RENAMED",
+            EntityType = "Category",
+            EntityId = category.Id,
+            Details = $"Renamed category '{oldName}' -> '{trimmedNew}'.",
+            Timestamp = DateTime.Now
+        });
+        db.SaveChanges();
+
         OnCategoriesChanged?.Invoke();
         return true;
     }
@@ -45,31 +99,38 @@ public class CategoryService
     public bool DeleteCategory(string name)
     {
         if (string.IsNullOrWhiteSpace(name)) return false;
-        var removed = _categories.RemoveAll(c => c.Equals(name.Trim(), StringComparison.OrdinalIgnoreCase));
-        if (removed > 0)
+
+        using var db = _dbFactory.CreateDbContext();
+
+        var category = db.Categories.FirstOrDefault(c => c.Name == name);
+        if (category == null) return false;
+
+        if (db.Products.Any(p => p.CategoryId == category.Id)) return false;
+
+        db.Categories.Remove(category);
+        db.SaveChanges();
+
+        var actor = _authService.CurrentUser;
+        db.ActivityLogs.Add(new ActivityLog
         {
-            OnCategoriesChanged?.Invoke();
-            return true;
-        }
-        return false;
+            UserId = actor?.Id,
+            Username = actor?.Username ?? "System",
+            Action = "CATEGORY_DELETED",
+            EntityType = "Category",
+            Details = $"Deleted category '{name}'.",
+            Timestamp = DateTime.Now
+        });
+        db.SaveChanges();
+
+        OnCategoriesChanged?.Invoke();
+        return true;
     }
 
     public bool IsCategoryInUse(string name, InventoryService inventoryService)
     {
-        return inventoryService.GetAll().Any(p =>
-            p.Category.Equals(name.Trim(), StringComparison.OrdinalIgnoreCase));
-    }
-
-    private void SeedData()
-    {
-        _categories.AddRange(new[]
-        {
-            "Ready to Eat",
-            "Beverages",
-            "Dry Goods",
-            "Grains",
-            "Canned Goods",
-            "Other"
-        });
+        using var db = _dbFactory.CreateDbContext();
+        var categoryId = db.Categories.Where(c => c.Name == name).Select(c => c.Id).FirstOrDefault();
+        if (categoryId == 0) return false;
+        return db.Products.Any(p => p.CategoryId == categoryId);
     }
 }

@@ -1,0 +1,287 @@
+@page "/admin"
+@rendermode InteractiveServer
+@inject AuthService AuthService
+@inject NavigationManager Navigation
+@inject MonitoringService MonitoringService
+@inject ToastService ToastService
+
+<PageTitle>Data Monitoring - Inventory System</PageTitle>
+
+@if (IsAllowed)
+{
+<div class="page-header">
+    <div>
+        <h1>Data Monitoring</h1>
+        <p>Registered users, activity audit trail, and inventory modifications per user</p>
+    </div>
+    <div class="page-header-actions">
+        <button class="btn btn-secondary" @onclick="LoadData"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
+    </div>
+</div>
+
+<div class="card" style="margin-bottom:24px;">
+    <div class="card-header">
+        <h3>Registered Users</h3>
+        <span class="badge badge-info">@users.Count users</span>
+    </div>
+    <div class="table-container table-responsive">
+        <table>
+            <thead>
+                <tr>
+                    <th>Username</th>
+                    <th>Full Name</th>
+                    <th>Role(s)</th>
+                    <th>Status</th>
+                    <th>Actions Recorded</th>
+                    <th>Last Activity</th>
+                    <th>Registered</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var user in users)
+                {
+                    <tr>
+                        <td style="font-weight:600;">@user.Username</td>
+                        <td>@user.FullName</td>
+                        <td><span class="badge badge-primary">@user.Roles</span></td>
+                        <td>
+                            @if (user.IsActive)
+                            {
+                                <span class="badge badge-success">Active</span>
+                            }
+                            else
+                            {
+                                <span class="badge badge-danger">Disabled</span>
+                            }
+                        </td>
+                        <td style="font-weight:600;">@user.ActivityCount</td>
+                        <td>
+                            @if (user.LastActivity.HasValue)
+                            {
+                                <div>@user.LastAction</div>
+                                <div class="text-muted" style="font-size:12px;">@user.LastActivity.Value.ToString("MMM d, yyyy h:mm tt")</div>
+                            }
+                            else
+                            {
+                                <span class="text-muted">No activity yet</span>
+                            }
+                        </td>
+                        <td class="text-muted">@user.CreatedAt.ToString("MMM d, yyyy")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@if (inventorySummaries.Any())
+{
+<div class="card" style="margin-bottom:24px;">
+    <div class="card-header">
+        <h3>Inventory Modifications Per User</h3>
+    </div>
+    <div class="table-container table-responsive">
+        <table>
+            <thead>
+                <tr>
+                    <th>User</th>
+                    <th>Total Changes</th>
+                    <th>Products Created</th>
+                    <th>Stock Changes</th>
+                    <th>Edits</th>
+                    <th>Deletions</th>
+                    <th>Last Change</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var summary in inventorySummaries)
+                {
+                    <tr>
+                        <td style="font-weight:600;">@summary.Username</td>
+                        <td>@summary.TotalChanges</td>
+                        <td>@summary.ProductsCreated</td>
+                        <td>@summary.StockChanges</td>
+                        <td>@summary.Edits</td>
+                        <td>@summary.Deletions</td>
+                        <td class="text-muted">@summary.LastChange.ToString("MMM d, yyyy h:mm tt")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+}
+
+<div class="grid-2" style="margin-bottom:24px;">
+    <div class="card">
+        <div class="card-header">
+            <h3>Recent Activity</h3>
+            <span class="badge badge-info">@activityLogs.Count entries</span>
+        </div>
+        <div class="table-container table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>When</th>
+                        <th>User</th>
+                        <th>Action</th>
+                        <th>Details</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var log in activityLogs)
+                    {
+                        <tr>
+                            <td class="text-muted" style="white-space:nowrap;">@log.Timestamp.ToString("MMM d, h:mm tt")</td>
+                            <td style="font-weight:600;">@log.Username</td>
+                            <td><span class="badge @ActivityBadge(log.Action)">@log.Action</span></td>
+                            <td style="font-size:13px;">@log.Details</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h3>Recent Inventory Changes</h3>
+            <span class="badge badge-info">@inventoryLogs.Count entries</span>
+        </div>
+        <div class="table-container table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>When</th>
+                        <th>User</th>
+                        <th>Product</th>
+                        <th>Change</th>
+                        <th>Qty Change</th>
+                        <th>Details</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var log in inventoryLogs)
+                    {
+                        <tr>
+                            <td class="text-muted" style="white-space:nowrap;">@log.Timestamp.ToString("MMM d, h:mm tt")</td>
+                            <td style="font-weight:600;">@(log.User?.Username ?? "System")</td>
+                            <td>@log.ProductName</td>
+                            <td><span class="badge @ChangeBadge(log.ChangeType)">@log.ChangeType</span></td>
+                            <td>
+                                @if (log.QuantityChange > 0)
+                                {
+                                    <span style="color:var(--success);font-weight:600;">+@log.QuantityChange</span>
+                                }
+                                else if (log.QuantityChange < 0)
+                                {
+                                    <span style="color:var(--error);font-weight:600;">@log.QuantityChange</span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">0</span>
+                                }
+                            </td>
+                            <td style="font-size:13px;">
+                                @if (log.PreviousPrice.HasValue && log.NewPrice.HasValue && log.PreviousPrice != log.NewPrice)
+                                {
+                                    <span>
+                                        ₱@log.PreviousPrice.Value.ToString("N2") → ₱@log.NewPrice.Value.ToString("N2")
+                                    </span>
+                                    <br />
+                                }
+                                @log.Note
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+}
+else
+{
+    <div class="card">
+        <div class="card-body">
+            <div class="empty-state">
+                <div class="empty-icon"><i class="bi bi-shield-lock"></i></div>
+                <h3>Access restricted</h3>
+                <p>This page is only available to Administrator or Manager roles.</p>
+                <button class="btn btn-primary" @onclick='() => Navigation.NavigateTo("/dashboard")'>Back to Dashboard</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool IsAllowed => AuthService.IsLoggedIn &&
+        (AuthService.CurrentUser?.IsInRole("Administrator") == true ||
+         AuthService.CurrentUser?.IsInRole("Manager") == true);
+
+    private List<UserAdminRow> users = new();
+    private List<UserInventorySummary> inventorySummaries = new();
+    private List<ActivityLog> activityLogs = new();
+    private List<InventoryLog> inventoryLogs = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!AuthService.IsLoggedIn)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        if (!IsAllowed)
+        {
+            Navigation.NavigateTo("/dashboard");
+            return;
+        }
+
+        LoadData();
+    }
+
+    private void LoadData()
+    {
+        users = MonitoringService.GetUsers();
+        inventorySummaries = MonitoringService.GetUserInventorySummaries();
+        activityLogs = MonitoringService.GetRecentActivityLogs(30);
+        inventoryLogs = MonitoringService.GetRecentInventoryLogs(30);
+
+        if (activityLogs.Count == 0 && inventoryLogs.Count == 0)
+        {
+            ToastService.ShowInfo("No activity recorded yet. Data appears after users take actions.");
+        }
+    }
+
+    private static string ActivityBadge(string action)
+    {
+        return action switch
+        {
+            "LOGIN" => "badge-info",
+            "LOGOUT" => "badge-secondary",
+            "PRODUCT_CREATED" => "badge-success",
+            "PRODUCT_EDITED" => "badge-info",
+            "PRODUCT_DELETED" => "badge-danger",
+            "STOCK_IN" => "badge-success",
+            "STOCK_OUT" => "badge-warning",
+            "CATEGORY_CREATED" => "badge-success",
+            "CATEGORY_RENAMED" => "badge-info",
+            "CATEGORY_DELETED" => "badge-danger",
+            _ => "badge-secondary"
+        };
+    }
+
+    private static string ChangeBadge(string changeType)
+    {
+        return changeType switch
+        {
+            "ADD" => "badge-success",
+            "EDIT" => "badge-info",
+            "DELETE" => "badge-danger",
+            "STOCK_IN" => "badge-success",
+            "STOCK_OUT" => "badge-warning",
+            _ => "badge-secondary"
+        };
+    }
+}

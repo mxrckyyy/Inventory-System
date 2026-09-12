@@ -1,0 +1,25 @@
+# Git / IDE
+.git/
+.gitignore
+.vs/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.userprefs
+
+# Build artifacts
+**/bin/
+**/obj/
+[Dd]ebug/
+[Rr]elease/
+publish/
+artifacts/
+
+# Logs
+*.log
+logs/
+
+# Misc
+node_modules/
+TestResults/

@@ -1,0 +1,220 @@
+@page "/register"
+@layout LoginLayout
+@rendermode InteractiveServer
+@inject AuthService AuthService
+@inject NavigationManager Navigation
+@inject ToastService ToastService
+
+<PageTitle>Create Account - Inventory System</PageTitle>
+
+<div class="login-container w-100 px-4">
+    <div class="login-logo">
+        <div class="logo-icon"><i class="bi bi-person-plus"></i></div>
+        <h1>Inventory System</h1>
+        <p>Create your account</p>
+    </div>
+
+    <div class="login-card">
+        <h2>Create your account</h2>
+        <p class="subtitle">Fill in the details below to get started</p>
+
+        <EditForm Model="model" OnValidSubmit="Submit">
+            <div class="form-group">
+                <label>Username</label>
+                <input type="text"
+                       class="form-control @(usernameError.Length > 0 ? "is-invalid" : "")"
+                       placeholder="Choose a username"
+                       @bind="model.Username"
+                       @bind:event="oninput"
+                       @onkeydown="HandleKeyDown" />
+                @if (usernameError.Length > 0)
+                {
+                    <div class="form-error">@usernameError</div>
+                }
+            </div>
+
+            <div class="form-group">
+                <label>Full Name</label>
+                <input type="text"
+                       class="form-control @(fullNameError.Length > 0 ? "is-invalid" : "")"
+                       placeholder="Enter your full name"
+                       @bind="model.FullName"
+                       @bind:event="oninput"
+                       @onkeydown="HandleKeyDown" />
+                @if (fullNameError.Length > 0)
+                {
+                    <div class="form-error">@fullNameError</div>
+                }
+            </div>
+
+            <div class="form-group">
+                <label>Role</label>
+                <select class="form-control @(roleError.Length > 0 ? "is-invalid" : "")"
+                        @bind="model.Role"
+                        @onkeydown="HandleKeyDown">
+                    <option value="">Select a role...</option>
+                    <option value="Manager">Manager</option>
+                    <option value="Employee">Employee</option>
+                </select>
+                @if (roleError.Length > 0)
+                {
+                    <div class="form-error">@roleError</div>
+                }
+            </div>
+
+            <div class="form-group">
+                <label>Password</label>
+                <div class="password-wrapper">
+                    <input type="@(showPassword ? "text" : "password")"
+                           class="form-control @(passwordError.Length > 0 ? "is-invalid" : "")"
+                           placeholder="Enter a password"
+                           @bind="model.Password"
+                           @bind:event="oninput"
+                           @onkeydown="HandleKeyDown" />
+                    <button type="button" class="password-toggle" @onclick="TogglePassword" aria-label="Toggle password visibility">
+                        <i class="bi @(showPassword ? "bi-eye-slash" : "bi-eye")"></i>
+                    </button>
+                </div>
+                @if (passwordError.Length > 0)
+                {
+                    <div class="form-error">@passwordError</div>
+                }
+            </div>
+
+            <div class="form-group">
+                <label>Confirm Password</label>
+                <div class="password-wrapper">
+                    <input type="@(showConfirmPassword ? "text" : "password")"
+                           class="form-control @(confirmError.Length > 0 ? "is-invalid" : "")"
+                           placeholder="Re-enter your password"
+                           @bind="model.ConfirmPassword"
+                           @bind:event="oninput"
+                           @onkeydown="HandleKeyDown" />
+                    <button type="button" class="password-toggle" @onclick="ToggleConfirmPassword" aria-label="Toggle confirm password visibility">
+                        <i class="bi @(showConfirmPassword ? "bi-eye-slash" : "bi-eye")"></i>
+                    </button>
+                </div>
+                @if (confirmError.Length > 0)
+                {
+                    <div class="form-error">@confirmError</div>
+                }
+            </div>
+
+            @if (serverError.Length > 0)
+            {
+                <div class="alert alert-error" role="alert">@serverError</div>
+            }
+
+            <button type="submit" class="btn btn-primary btn-block" disabled="@isSubmitting">
+                @if (isSubmitting)
+                {
+                    <span>Creating account...</span>
+                }
+                else
+                {
+                    <span>Create Account</span>
+                }
+            </button>
+        </EditForm>
+
+        <div class="auth-switch">
+            <span>Already have an account?</span>
+            <a href="/login">Sign In</a>
+        </div>
+    </div>
+</div>
+
+@code {
+    private RegisterModel model = new();
+    private bool showPassword;
+    private bool showConfirmPassword;
+    private bool isSubmitting;
+    private string usernameError = string.Empty;
+    private string fullNameError = string.Empty;
+    private string roleError = string.Empty;
+    private string passwordError = string.Empty;
+    private string confirmError = string.Empty;
+    private string serverError = string.Empty;
+
+    protected override void OnInitialized()
+    {
+        if (AuthService.IsLoggedIn)
+        {
+            Navigation.NavigateTo("/dashboard");
+        }
+    }
+
+    private void TogglePassword()
+    {
+        showPassword = !showPassword;
+    }
+
+    private void ToggleConfirmPassword()
+    {
+        showConfirmPassword = !showConfirmPassword;
+    }
+
+    private void HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            Submit();
+        }
+    }
+
+    private void Submit()
+    {
+        serverError = string.Empty;
+
+        usernameError = InputValidator.RequiredError(model.Username, "Username");
+        fullNameError = InputValidator.RequiredError(model.FullName, "Full name");
+        roleError = InputValidator.RequiredError(model.Role, "Role");
+        passwordError = InputValidator.RequiredError(model.Password, "Password");
+        confirmError = InputValidator.RequiredError(model.ConfirmPassword, "Confirm password");
+
+        if (passwordError.Length == 0 && confirmError.Length == 0)
+        {
+            confirmError = InputValidator.PasswordMatchError(model.Password, model.ConfirmPassword);
+        }
+
+        if (usernameError.Length > 0 ||
+            fullNameError.Length > 0 ||
+            roleError.Length > 0 ||
+            passwordError.Length > 0 ||
+            confirmError.Length > 0)
+        {
+            return;
+        }
+
+        isSubmitting = true;
+
+        var errors = AuthService.Register(
+            model.Username, model.Password, model.ConfirmPassword, model.FullName, model.Role);
+
+        if (errors.Count == 0)
+        {
+            ToastService.ShowSuccess($"Account created. Welcome, {AuthService.CurrentUser?.FullName}!");
+            Navigation.NavigateTo("/dashboard");
+        }
+        else
+        {
+            isSubmitting = false;
+
+            if (errors.ContainsKey("username")) { usernameError = errors["username"]; }
+            if (errors.ContainsKey("fullName")) { fullNameError = errors["fullName"]; }
+            if (errors.ContainsKey("role")) { roleError = errors["role"]; }
+            if (errors.ContainsKey("password")) { passwordError = errors["password"]; }
+            if (errors.ContainsKey("confirmPassword")) { confirmError = errors["confirmPassword"]; }
+            if (errors.ContainsKey("general")) { serverError = errors["general"]; }
+        }
+    }
+
+    private class RegisterModel
+    {
+        public string Username { get; set; } = string.Empty;
+        public string FullName { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+        public string ConfirmPassword { get; set; } = string.Empty;
+        public string Role { get; set; } = string.Empty;
+    }
+}

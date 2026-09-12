@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: inventory-system
+    runtime: docker
+    repo: https://github.com/mxrckyyy/Inventory-System.git
+    branch: master
+    region: oregon
+    plan: free
+    dockerContext: .
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /
+    healthCheckTimeout: 100
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      # The app binds Kestrel to the $PORT provided by Render (fallback 8080).
+      # Do NOT set ASPNETCORE_URLS -- Render does not expand ${PORT} in env vars,
+      # and a literal value breaks startup.
+      - key: ConnectionStrings__DefaultConnection
+        sync: false
+      - key: MySql__ServerType
+        sync: false
+      - key: MySql__Version
+        sync: false
+
+# After creating the service set these secrets in the Render dashboard:
+#   ConnectionStrings__DefaultConnection = your external MySQL/MariaDB connection string
+#   MySql__ServerType = MySql or MariaDb (use MariaDb if using a MariaDB host)
+#   MySql__Version = e.g. 8.0 for MySQL, 10.4 for MariaDB

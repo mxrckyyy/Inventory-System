@@ -1,4 +1,4 @@
-0@page "/inventory/add"
+@page "/inventory/add"
 @rendermode InteractiveServer
 @inject AuthService AuthService
 @inject NavigationManager Navigation
@@ -23,7 +23,6 @@
 <div class="card">
     <div class="card-body">
         <EditForm Model="product" OnValidSubmit="HandleSubmit">
-            <DataAnnotationsValidator />
 
             <div class="grid-2" style="margin-bottom: 0;">
                 <div class="form-group">
@@ -33,44 +32,67 @@
 
                 <div class="form-group">
                     <label>Product Name *</label>
-                    <input type="text" class="form-control" placeholder="Enter product name" @bind="product.ProductName" @bind:event="oninput" />
-                    <ValidationMessage For="() => product.ProductName" />
+                    <input type="text" class="form-control @(productNameError.Length > 0 ? "is-invalid" : "")"
+                           placeholder="Enter product name" @bind="product.ProductName" @bind:event="oninput" />
+                    @if (productNameError.Length > 0)
+                    {
+                        <div class="form-error">@productNameError</div>
+                    }
                 </div>
 
                 <div class="form-group">
                     <label>Category *</label>
-                    <select class="form-control @(categoryClass)" @bind="product.Category" @bind:event="oninput">
+                    <select class="form-control @(categoryError.Length > 0 ? "is-invalid" : "")" @bind="product.Category" @bind:event="oninput">
                         <option value="">Select a category</option>
                         @foreach (var cat in categories)
                         {
                             <option value="@cat">@cat</option>
                         }
                     </select>
-                    <ValidationMessage For="() => product.Category" />
+                    @if (categoryError.Length > 0)
+                    {
+                        <div class="form-error">@categoryError</div>
+                    }
                 </div>
 
                 <div class="form-group">
                     <label>Price (₱) *</label>
-                    <input type="number" class="form-control" placeholder="0.00" @bind="product.Price" step="0.01" min="0" />
-                    <ValidationMessage For="() => product.Price" />
+                    <input type="number" class="form-control @(priceError.Length > 0 ? "is-invalid" : "")"
+                           placeholder="0.00" @bind="product.Price" step="0.01" min="0" />
+                    @if (priceError.Length > 0)
+                    {
+                        <div class="form-error">@priceError</div>
+                    }
                 </div>
 
                 <div class="form-group">
                     <label>Quantity *</label>
-                    <input type="number" class="form-control" placeholder="0" @bind="product.Quantity" min="0" />
-                    <ValidationMessage For="() => product.Quantity" />
+                    <input type="number" class="form-control @(quantityError.Length > 0 ? "is-invalid" : "")"
+                           placeholder="0" @bind="product.Quantity" min="0" />
+                    @if (quantityError.Length > 0)
+                    {
+                        <div class="form-error">@quantityError</div>
+                    }
                 </div>
 
                 <div class="form-group">
                     <label>Minimum Stock Level *</label>
-                    <input type="number" class="form-control" placeholder="0" @bind="product.MinimumStockLevel" min="0" />
-                    <ValidationMessage For="() => product.MinimumStockLevel" />
+                    <input type="number" class="form-control @(minStockError.Length > 0 ? "is-invalid" : "")"
+                           placeholder="0" @bind="product.MinimumStockLevel" min="0" />
+                    @if (minStockError.Length > 0)
+                    {
+                        <div class="form-error">@minStockError</div>
+                    }
                 </div>
 
                 <div class="form-group">
                     <label>Unit *</label>
-                    <input type="text" class="form-control" placeholder="e.g. Piece, Bottle, Pack" @bind="product.Unit" @bind:event="oninput" />
-                    <ValidationMessage For="() => product.Unit" />
+                    <input type="text" class="form-control @(unitError.Length > 0 ? "is-invalid" : "")"
+                           placeholder="e.g. Piece, Bottle, Pack" @bind="product.Unit" @bind:event="oninput" />
+                    @if (unitError.Length > 0)
+                    {
+                        <div class="form-error">@unitError</div>
+                    }
                 </div>
             </div>
 
@@ -79,7 +101,7 @@
                 <textarea class="form-control" rows="3" placeholder="Product description..." @bind="product.Description" style="resize:vertical;"></textarea>
             </div>
 
-            <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px;" class="form-actions">
+            <div class="form-actions">
                 <button type="button" class="btn btn-secondary" @onclick='() => Navigation.NavigateTo("/inventory")'>Cancel</button>
                 <button type="submit" class="btn btn-primary">Add Product</button>
             </div>
@@ -108,10 +130,13 @@
 @code {
     private Product product = new();
     private List<string> categories = new();
-    private bool submitted;
     private bool showSuccessModal;
-
-    private string categoryClass => submitted && string.IsNullOrEmpty(product.Category) ? "is-invalid" : "";
+    private string productNameError = string.Empty;
+    private string categoryError = string.Empty;
+    private string priceError = string.Empty;
+    private string quantityError = string.Empty;
+    private string minStockError = string.Empty;
+    private string unitError = string.Empty;
 
     protected override async Task OnInitializedAsync()
     {
@@ -149,21 +174,33 @@
 
     private void HandleSubmit()
     {
-        submitted = true;
+        productNameError = string.Empty;
+        categoryError = string.Empty;
+        priceError = string.Empty;
+        quantityError = string.Empty;
+        minStockError = string.Empty;
+        unitError = string.Empty;
 
-        if (!string.IsNullOrWhiteSpace(product.ProductName))
-        {
-            product.ProductName = product.ProductName.Trim();
-        }
+        product.ProductId = InputValidator.TrimSpaces(product.ProductId);
+        product.ProductName = InputValidator.TrimSpaces(product.ProductName);
+        product.Category = InputValidator.TrimSpaces(product.Category);
+        product.Unit = InputValidator.TrimSpaces(product.Unit);
+        product.Description = InputValidator.TrimSpaces(product.Description);
 
-        if (!string.IsNullOrWhiteSpace(product.Unit))
-        {
-            product.Unit = product.Unit.Trim();
-        }
+        productNameError = InputValidator.RequiredError(product.ProductName, "Product name");
+        categoryError = InputValidator.RequiredError(product.Category, "Category");
+        unitError = InputValidator.RequiredError(product.Unit, "Unit");
 
-        if (string.IsNullOrEmpty(product.ProductId) ||
-            string.IsNullOrEmpty(product.ProductName) || string.IsNullOrEmpty(product.Category) ||
-            product.Price <= 0 || product.Quantity < 0 || product.MinimumStockLevel < 0)
+        if (product.Price <= 0) { priceError = "Price must be greater than zero."; }
+        if (product.Quantity < 0) { quantityError = "Quantity cannot be negative."; }
+        if (product.MinimumStockLevel < 0) { minStockError = "Minimum stock cannot be negative."; }
+
+        if (productNameError.Length > 0 ||
+            categoryError.Length > 0 ||
+            priceError.Length > 0 ||
+            quantityError.Length > 0 ||
+            minStockError.Length > 0 ||
+            unitError.Length > 0)
         {
             return;
         }
@@ -177,7 +214,12 @@
     {
         product = new Product { ProductId = InventoryService.GenerateNextProductId() };
         showSuccessModal = false;
-        submitted = false;
+        productNameError = string.Empty;
+        categoryError = string.Empty;
+        priceError = string.Empty;
+        quantityError = string.Empty;
+        minStockError = string.Empty;
+        unitError = string.Empty;
     }
 
     private void GoToInventory()

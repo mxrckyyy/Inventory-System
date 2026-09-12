@@ -21,12 +21,12 @@
             <div class="form-group">
                 <label>Username</label>
                 <input type="text"
-                       class="form-control @(showUsernameError ? "is-invalid" : "")"
+                       class="form-control @(usernameError.Length > 0 ? "is-invalid" : "")"
                        placeholder="Enter your username"
                        @bind="loginModel.Username"
                        @bind:event="oninput"
                        @onkeydown="HandleKeyDown" />
-                @if (showUsernameError)
+                @if (usernameError.Length > 0)
                 {
                     <div class="form-error">@usernameError</div>
                 }
@@ -36,7 +36,7 @@
                 <label>Password</label>
                 <div class="password-wrapper">
                     <input type="@(showPassword ? "text" : "password")"
-                           class="form-control @(showPasswordError ? "is-invalid" : "")"
+                           class="form-control @(passwordError.Length > 0 ? "is-invalid" : "")"
                            placeholder="Enter your password"
                            @bind="loginModel.Password"
                            @bind:event="oninput"
@@ -45,13 +45,13 @@
                         <i class="bi @(showPassword ? "bi-eye-slash" : "bi-eye")"></i>
                     </button>
                 </div>
-                @if (showPasswordError)
+                @if (passwordError.Length > 0)
                 {
                     <div class="form-error">@passwordError</div>
                 }
             </div>
 
-            @if (!string.IsNullOrEmpty(loginError))
+            @if (loginError.Length > 0)
             {
                 <div class="alert alert-error" role="alert">@loginError</div>
             }
@@ -75,6 +75,11 @@
                 }
             </button>
         </EditForm>
+
+        <div class="auth-switch">
+            <span>Don't have an account?</span>
+            <a href="/register">Sign Up</a>
+        </div>
     </div>
 </div>
 
@@ -82,8 +87,6 @@
     private LoginModel loginModel = new();
     private bool showPassword;
     private bool isLoggingIn;
-    private bool showUsernameError;
-    private bool showPasswordError;
     private string usernameError = string.Empty;
     private string passwordError = string.Empty;
     private string loginError = string.Empty;
@@ -112,28 +115,13 @@
     private void HandleLogin()
     {
         loginError = string.Empty;
-        showUsernameError = false;
-        showPasswordError = false;
         usernameError = string.Empty;
         passwordError = string.Empty;
 
-        bool valid = true;
+        usernameError = InputValidator.RequiredError(loginModel.Username, "Username");
+        passwordError = InputValidator.RequiredError(loginModel.Password, "Password");
 
-        if (string.IsNullOrWhiteSpace(loginModel.Username))
-        {
-            showUsernameError = true;
-            usernameError = "Username is required.";
-            valid = false;
-        }
-
-        if (string.IsNullOrWhiteSpace(loginModel.Password))
-        {
-            showPasswordError = true;
-            passwordError = "Password is required.";
-            valid = false;
-        }
-
-        if (!valid) return;
+        if (usernameError.Length > 0 || passwordError.Length > 0) return;
 
         isLoggingIn = true;
 

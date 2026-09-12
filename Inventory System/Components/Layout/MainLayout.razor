@@ -50,6 +50,13 @@
                     <span class="nav-icon"><i class="bi bi-gear"></i></span>
                     Settings
                 </NavLink>
+                @if (IsAdminOrManager)
+                {
+                    <NavLink class="nav-item" href="/admin" @onclick="CloseSidebar">
+                        <span class="nav-icon"><i class="bi bi-activity"></i></span>
+                        Data Monitoring
+                    </NavLink>
+                }
             </div>
         </nav>
 
@@ -82,10 +89,10 @@
                 </button>
 
                 <div class="user-menu" @onclick="ToggleDropdown" role="button" aria-haspopup="true" aria-expanded="showDropdown">
-                    <div class="user-avatar">AU</div>
+                    <div class="user-avatar">@(AuthService.CurrentUser?.Avatar)</div>
                     <div class="user-info">
-                        <div class="user-name">Admin User</div>
-                        <div class="user-role">Administrator</div>
+                        <div class="user-name">@(AuthService.CurrentUser?.FullName)</div>
+                        <div class="user-role">@(AuthService.CurrentUser?.Role)</div>
                     </div>
 
                     @if (showDropdown)
@@ -119,6 +126,10 @@
     private bool showDropdown;
     private bool sidebarOpen;
     private string searchQuery = string.Empty;
+
+    private bool IsAdminOrManager =>
+        AuthService.CurrentUser?.IsInRole("Administrator") == true ||
+        AuthService.CurrentUser?.IsInRole("Manager") == true;
 
     private string GetPageTitle()
     {
