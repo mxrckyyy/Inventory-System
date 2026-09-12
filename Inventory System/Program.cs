@@ -1,12 +1,23 @@
 using Inventory_System.Components;
 using Inventory_System.Data;
 using Inventory_System.Services;
+using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+    options.Providers.Add<BrotliCompressionProvider>();
+    options.Providers.Add<GzipCompressionProvider>();
+    options.MimeTypes = ResponseCompressionDefaults.MimeTypes
+        .Append("application/octet-stream")
+        .Append("application/json");
+});
 
 var connectionString = ResolveConnectionString(builder.Configuration, out var source);
 Console.WriteLine("[Inventory System] Database source: " + source);
@@ -59,6 +70,7 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
+app.UseResponseCompression();
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseAntiforgery();

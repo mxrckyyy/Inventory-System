@@ -20,7 +20,7 @@ public class CategoryService
     public List<string> GetAll()
     {
         using var db = _dbFactory.CreateDbContext();
-        return db.Categories.Select(c => c.Name).OrderBy(c => c).ToList();
+        return db.Categories.AsNoTracking().Select(c => c.Name).OrderBy(c => c).ToList();
     }
 
     public bool AddCategory(string name)

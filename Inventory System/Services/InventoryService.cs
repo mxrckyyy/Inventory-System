@@ -38,7 +38,7 @@ public class InventoryService
     public List<Product> GetAll()
     {
         using var db = _dbFactory.CreateDbContext();
-        return db.Products
+        return db.Products.AsNoTracking()
             .Include(p => p.CategoryNav)
             .Include(p => p.CreatedByUser)
             .Include(p => p.UpdatedByUser)
@@ -352,7 +352,7 @@ public class InventoryService
     }
 
     private static IQueryable<Product> QueryAll(InventoryDbContext db) =>
-        db.Products
+        db.Products.AsNoTracking()
             .Include(p => p.CategoryNav)
             .Include(p => p.CreatedByUser)
             .Include(p => p.UpdatedByUser);
@@ -381,13 +381,13 @@ public class InventoryService
     public List<string> GetCategories()
     {
         using var db = _dbFactory.CreateDbContext();
-        return db.Categories.Select(c => c.Name).OrderBy(c => c).ToList();
+        return db.Categories.AsNoTracking().Select(c => c.Name).OrderBy(c => c).ToList();
     }
 
     public List<Product> GetLowStockProducts()
     {
         using var db = _dbFactory.CreateDbContext();
-        return db.Products
+        return db.Products.AsNoTracking()
             .Include(p => p.CategoryNav)
             .Where(p => p.Quantity > 0 && p.Quantity <= p.MinimumStockLevel)
             .OrderBy(p => p.Quantity)
@@ -397,7 +397,7 @@ public class InventoryService
     public List<Product> GetOutOfStockProducts()
     {
         using var db = _dbFactory.CreateDbContext();
-        return db.Products
+        return db.Products.AsNoTracking()
             .Include(p => p.CategoryNav)
             .Where(p => p.Quantity == 0)
             .ToList();
@@ -425,35 +425,71 @@ public class InventoryService
     {
         using var db = _dbFactory.CreateDbContext();
 
-        var products = db.Products.Include(p => p.CategoryNav).ToList();
+        var aggregate = db.Products
+            .AsNoTracking()
+            .GroupBy(p => 1)
+            .Select(g => new
+            {
+                TotalProducts = g.Count(),
+                TotalQuantity = g.Sum(p => p.Quantity),
+                TotalValue = g.Sum(p => p.Price * p.Quantity),
+                InStock = g.Count(p => p.Quantity > p.MinimumStockLevel),
+                LowStock = g.Count(p => p.Quantity > 0 && p.Quantity <= p.MinimumStockLevel),
+                OutOfStock = g.Count(p => p.Quantity == 0),
+                RecentActivity = g.Max(p => p.LastUpdated)
+            })
+            .FirstOrDefault();
 
-        var totalQuantity = products.Sum(p => p.Quantity);
-        var inStock = products.Count(p => p.Quantity > p.MinimumStockLevel);
-        var lowStock = products.Count(p => p.Quantity > 0 && p.Quantity <= p.MinimumStockLevel);
-        var outOfStock = products.Count(p => p.Quantity == 0);
+        var categories = db.Categories.Count();
+
+        var productRows = db.Products
+            .AsNoTracking()
+            .Select(p => new Product
+            {
+                Id = p.Id,
+                ProductId = p.ProductId,
+                ProductName = p.ProductName,
+                Unit = p.Unit,
+                Quantity = p.Quantity,
+                Price = p.Price,
+                Category = p.Category,
+                MinimumStockLevel = p.MinimumStockLevel,
+                LastUpdated = p.LastUpdated
+            })
+            .ToList();
+
+        var lowStock = aggregate?.LowStock ?? 0;
+        var outOfStock = aggregate?.OutOfStock ?? 0;
 
         return new DashboardStats
         {
-            TotalProducts = products.Count,
-            TotalQuantity = totalQuantity,
-            InStock = inStock,
+            TotalProducts = aggregate?.TotalProducts ?? 0,
+            TotalQuantity = aggregate?.TotalQuantity ?? 0,
+            InStock = aggregate?.InStock ?? 0,
             LowStock = lowStock,
             OutOfStock = outOfStock,
             LowStockItems = lowStock + outOfStock,
-            TotalValue = products.Sum(p => p.Price * p.Quantity),
-            Categories = db.Categories.Count(),
-            TotalCategories = db.Categories.Count(),
-            RecentProducts = products.OrderByDescending(p => p.LastUpdated).Take(5).ToList(),
-            LowStockProducts = products.Where(p => p.Quantity > 0 && p.Quantity <= p.MinimumStockLevel)
-                .OrderBy(p => p.Quantity).ToList(),
-            OutOfStockProducts = products.Where(p => p.Quantity == 0).ToList()
+            TotalValue = aggregate?.TotalValue ?? 0,
+            Categories = categories,
+            TotalCategories = categories,
+            RecentProducts = productRows
+                .OrderByDescending(p => p.LastUpdated)
+                .Take(5)
+                .ToList(),
+            LowStockProducts = productRows
+                .Where(p => p.Quantity > 0 && p.Quantity <= p.MinimumStockLevel)
+                .OrderBy(p => p.Quantity)
+                .ToList(),
+            OutOfStockProducts = productRows
+                .Where(p => p.Quantity == 0)
+                .ToList()
         };
     }
 
     public List<InventoryLog> GetRecentLogs(int count = 20)
     {
         using var db = _dbFactory.CreateDbContext();
-        return db.InventoryLogs
+        return db.InventoryLogs.AsNoTracking()
             .Include(l => l.Product)
             .Include(l => l.User)
             .OrderByDescending(l => l.Timestamp)

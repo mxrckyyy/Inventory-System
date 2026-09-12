@@ -18,10 +18,12 @@ public class MonitoringService
         using var db = _dbFactory.CreateDbContext();
 
         var users = db.Users
+            .AsNoTracking()
             .Include(u => u.UserRoles).ThenInclude(ur => ur.Role)
             .ToList();
 
         var activitySummary = db.ActivityLogs
+            .AsNoTracking()
             .GroupBy(a => a.UserId)
             .Select(g => new
             {
@@ -54,6 +56,7 @@ public class MonitoringService
     {
         using var db = _dbFactory.CreateDbContext();
         return db.ActivityLogs
+            .AsNoTracking()
             .Include(a => a.User)
             .OrderByDescending(a => a.Timestamp)
             .Take(count)
@@ -64,6 +67,7 @@ public class MonitoringService
     {
         using var db = _dbFactory.CreateDbContext();
         return db.InventoryLogs
+            .AsNoTracking()
             .Include(l => l.Product)
             .Include(l => l.User)
             .OrderByDescending(l => l.Timestamp)
@@ -75,7 +79,7 @@ public class MonitoringService
     {
         using var db = _dbFactory.CreateDbContext();
 
-        var logs = db.InventoryLogs.Include(l => l.User).ToList();
+        var logs = db.InventoryLogs.AsNoTracking().Include(l => l.User).ToList();
 
         return logs
             .GroupBy(l => l.UserId)
